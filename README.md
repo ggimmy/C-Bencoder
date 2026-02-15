@@ -40,8 +40,7 @@ Il codice sorgente originale (`structs.c`, `structs.h`, `bencode.c`, `bencode.h`
 4. [Strutture Dati](#strutture-dati)
 5. [API Reference](#api-reference)
 6. [Esempi di Utilizzo](#esempi-di-utilizzo)
-7. [Bug e Limitazioni Conosciute](#bug-e-limitazioni-conosciute)
-8. [Considerazioni sulla Memoria](#considerazioni-sulla-memoria)
+7. [Considerazioni sulla Memoria](#considerazioni-sulla-memoria)
 
 ---
 
@@ -888,53 +887,6 @@ int main() {
 ```
 Peer ID: 2D 47 53 30 30 30 31 2D 3A ... (20 byte totali)
 ```
-
----
-
-## Bug e Limitazioni Conosciute
-
-### Bug Critici
-
-#### 1. **Unreachable Code in `test_decode_list()`**
-**File**: `bencode.c` linea 319  
-**Codice**:
-```c
-return return_list;
-
-printf("\t\tFINE LISTA\n");  // ← Non è mai eseguito
-```
-
-**Impatto**: Il messaggio "FINE LISTA" non viene mai stampato  
-**Fix**: Spostare il printf prima del return
-
----
-
-#### 2. **Missing `break` in `print_object()`**
-**File**: `structs.c` linea 131-133  
-**Codice**:
-```c
-case B_DICT:
-    print_dict(obj->object->dict);
-    // ← Manca break!
-case B_HEX:
-    print_hex(...);
-```
-
-**Impatto**: Se tipo è B_DICT, viene anche eseguito il codice di B_HEX (fall-through)  
-**Fix**: Aggiungere `break;` dopo `print_dict()`
-
----
-
-#### 3. **Inconsistenza in `print_object()` per B_STR**
-**File**: `structs.c` linea 124  
-**Codice**:
-```c
-case B_STR:
-    printf("%s\n", obj->object->int_str->encoded_element);  // ← encoded!
-```
-
-**Impatto**: Stampa la forma codificata invece di quella decodificata (incoerente con altre funzioni)  
-**Fix**: Cambiare in `decoded_element`
 
 ---
 
