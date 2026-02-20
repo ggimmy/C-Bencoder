@@ -15,12 +15,13 @@
 - 🧠 **Progettazione dell'architettura**: Le strutture dati (b_obj, b_list, b_dict, ecc.)
 - 🔧 **Implementazione della logica di parsing**: Gli algoritmi ricorsivi di decodifica bencode
 - 💡 **Algoritmi di decodifica**: La logica di type_to_decode, decode_integer, decode_string, test_decode_list, test_decode_dict
-- 💾 **Gestione della memoria**: Allocazione con malloc, struttura delle collezioni (liste concatenate, dizionari)
+- 💾 **Gestione della memoria**: Allocazione con malloc, struttura delle collezioni (liste concatenate, dizionari), **funzioni di deallocazione ricorsiva**
 - 🔍 **Handling dei casi speciali**: Il flag globale 'pieces' per differenziare stringhe normali da dati binari esadecimali
-- ✅ **Validazione**: Controllo degli zeri iniziali negli interi, validazione delle lunghezze negative, controllo di format
+- ✅ **Validazione**: Controllo degli zeri iniziali negli interi, validazione delle lunghezze negative, controllo di format, **null-checking su malloc**
 - 🎯 **Ricorsione**: La traversata di strutture nidificate arbitrariamente profonde in liste e dizionari
 - 🔀 **State Management**: Il controllo del flusso tra parsing di diverse strutture bencode
 - 📊 **Logica di calcolo degli offset**: Il tracking dell'indice durante il parsing sequenziale
+- 🌐 **Protocollo BitTorrent**: Generazione del Peer ID tramite OpenSSL SHA1
 
 ### Verifica dell'Integrità
 Il codice sorgente originale (`structs.c`, `structs.h`, `bencode.c`, `bencode.h`) rimane **completamente immutato** nella sua logica e funzionalità. Le uniche modifiche applicate sono:
@@ -35,12 +36,14 @@ Il codice sorgente originale (`structs.c`, `structs.h`, `bencode.c`, `bencode.h`
 ## Indice
 0. [⚠️ Disclaimer - Ruolo dell'Intelligenza Artificiale](#️-disclaimer---ruolo-dellintelligenza-artificiale)
 1. [Panoramica del Progetto](#panoramica-del-progetto)
-2. [Formato Bencode](#formato-bencode)
-3. [Architettura dei Moduli](#architettura-dei-moduli)
-4. [Strutture Dati](#strutture-dati)
-5. [API Reference](#api-reference)
-6. [Esempi di Utilizzo](#esempi-di-utilizzo)
-7. [Considerazioni sulla Memoria](#considerazioni-sulla-memoria)
+2. [Changelog](#changelog)
+3. [Formato Bencode](#formato-bencode)
+4. [Architettura dei Moduli](#architettura-dei-moduli)
+5. [Strutture Dati](#strutture-dati)
+6. [API Reference](#api-reference)
+7. [Esempi di Utilizzo](#esempi-di-utilizzo)
+8. [Considerazioni sulla Memoria](#considerazioni-sulla-memoria)
+9. [Limitazioni Note](#limitazioni-note)
 
 ---
 
@@ -51,10 +54,36 @@ Questo progetto implementa un parser per il formato **Bencode**, uno schema di s
 ### Componenti Principali
 - **`structs.h/c`**: Definisce le strutture dati e funzioni di gestione
 - **`bencode.h/c`**: Implementa i decodificatori bencode ricorsivi
-- **Tipo di progetto**: Libreria C per parsing e decodifica dati
+- **Tipo di progetto**: Libreria C per parsing e decodifica dati, con primitive per il protocollo BitTorrent
 
 ### Caso d'Uso Primario
 Parsing di file metainfo `.torrent` che utilizzano il formato bencode per rappresentare metadati del file, informazioni sui pezzi, URL dei tracker, ecc.
+
+---
+
+## Changelog
+
+### v1.1 - Febbraio 2026 *(commit recenti)*
+
+#### ✅ Memory Management — implementato
+La limitazione più critica segnalata nella v1.0 è stata risolta. Sono state aggiunte tre funzioni di deallocazione ricorsiva in `structs.c`:
+
+- **`free_obj(b_obj *ptr)`** — libera un oggetto generico gestendo tutti i tipi tramite switch. Per collezioni (liste e dizionari), delega ricorsivamente alle funzioni dedicate.
+- **`free_listNodes(b_list *ptr)`** — percorre la lista concatenata liberando ogni nodo e il relativo `b_obj`, poi libera `enocded_list` e la struttura `b_list`.
+- **`free_dictNodes(b_dict *ptr)`** — percorre il dizionario liberando ogni nodo con chiave e valore, poi libera `encoded_dict` e la struttura `b_dict`.
+
+Le dichiarazioni corrispondenti sono state aggiunte in `structs.h`.
+
+#### ✅ Null-checking su malloc — implementato
+`list_init()` e `dict_init()` ora controllano il valore di ritorno di `malloc`. In caso di fallimento stampano un messaggio diagnostico su `stderr` e terminano con `exit(-1)`, evitando dereferenziazioni di puntatori NULL. Stessa robustezza applicata a `list_add()` e `dict_add()`.
+
+#### ✅ Primitive protocollo BitTorrent — aggiunta `generate_peer_id`
+Il progetto ha iniziato ad espandersi oltre il parser bencode puro: è stata aggiunta la funzione `generate_peer_id()` in `bencode.c` che genera un Peer ID di 20 byte conforme alle specifiche BitTorrent, usando OpenSSL SHA1 come primitiva crittografica.
+
+---
+
+### v1.0 - Gennaio 2026
+Versione iniziale con parser bencode funzionante (interi, stringhe, liste, dizionari), supporto al tipo binario `B_HEX` per il campo `pieces`, e decodificatori in doppia modalità (full/lightweight).
 
 ---
 
@@ -366,7 +395,7 @@ b_list *lista = list_init();
 
 **Complessità**: O(1)  
 **Memory**: Alloca sizeof(b_list)  
-**Note**: Non controlla fallimento di malloc
+**Note**: Controlla il fallimento di malloc, stampa su stderr e termina con exit(-1)
 
 ---
 
@@ -382,7 +411,7 @@ b_dict *dict = dict_init();
 
 **Complessità**: O(1)  
 **Memory**: Alloca sizeof(b_dict)  
-**Note**: Non controlla fallimento di malloc
+**Note**: Controlla il fallimento di malloc, stampa su stderr e termina con exit(-1)
 
 ---
 
@@ -398,7 +427,7 @@ list_add(lista, intero);
 
 **Complessità**: O(n) dove n è il numero di elementi  
 **Memory**: Alloca sizeof(list_node)  
-**Note**: Termina con exit(-1) se malloc fallisce
+**Note**: Controlla il fallimento di malloc, termina con exit(-1)
 
 ---
 
@@ -413,7 +442,55 @@ dict_add(dict, key, val);
 
 **Complessità**: O(n) dove n è il numero di coppie  
 **Memory**: Alloca sizeof(dict_node)  
-**Note**: NON ordina le chiavi lessicograficamente
+**Note**: NON ordina le chiavi lessicograficamente. Controlla il fallimento di malloc.
+
+---
+
+### Funzioni di Deallocazione *(aggiunte in v1.1)*
+
+#### `void free_obj(b_obj *ptr)`
+Libera ricorsivamente un oggetto generico e tutta la sua memoria interna.
+
+```c
+b_obj *num = test_decode_integer("i42e");
+// ... usa num ...
+free_obj(num);  // libera b_element, b_box, b_obj
+```
+
+Gestisce tutti i tipi tramite switch:
+- `B_INT` / `B_STR`: libera `decoded_element`, `encoded_element`, `b_element`, `b_box`, `b_obj`
+- `B_HEX`: libera `decoded_pieces`, `b_pieces`, `b_box`, `b_obj`
+- `B_LIS`: delega a `free_listNodes`, poi libera `b_box` e `b_obj`
+- `B_DICT`: delega a `free_dictNodes`, poi libera `b_box` e `b_obj`
+- `B_NULL`: stampa errore su stderr
+
+**Complessità**: O(n) dove n è il numero totale di nodi nella struttura
+
+---
+
+#### `void free_listNodes(b_list *ptr)`
+Libera tutti i nodi di una lista concatenata e la struttura `b_list` stessa.
+
+```c
+free_listNodes(lista->object->list);
+```
+
+Percorre la lista liberando ogni `list_node` e il relativo `b_obj` tramite `free_obj()`. Al termine libera `enocded_list` e la struttura `b_list`.
+
+**Complessità**: O(n) dove n è il numero di elementi
+
+---
+
+#### `void free_dictNodes(b_dict *ptr)`
+Libera tutti i nodi di un dizionario e la struttura `b_dict` stessa.
+
+```c
+free_dictNodes(dict->object->dict);
+```
+
+Percorre il dizionario liberando ogni `dict_node` con chiave e valore tramite `free_obj()`. Al termine libera `encoded_dict` e la struttura `b_dict`.
+
+**Complessità**: O(n) dove n è il numero di coppie
 
 ---
 
@@ -461,13 +538,14 @@ Decodifica un intero bencode in struttura b_obj.
 ```c
 b_obj *num = test_decode_integer("i42e");
 printf("%s\n", num->object->int_str->decoded_element);  // Output: 42
+free_obj(num);
 ```
 
 **Input**: `"i<numero>e"` (es. `"i42e"`)  
 **Output**: `b_obj` di tipo `B_INT`  
 **Validazione**: Rifiuta zeri iniziali  
 **Error**: `exit(1)` se formato invalido  
-**Memory**: Alloca b_element, b_box, b_obj
+**Memory**: Alloca b_element, b_box, b_obj — liberabile con `free_obj()`
 
 ---
 
@@ -488,10 +566,11 @@ b_obj *hex = test_decode_string("20:<20 bytes>", 1);
 **Output**: `b_obj` di tipo `B_STR` o `B_HEX`  
 **Flag p_flag**:
 - `0`: stringa normale, ritorna `B_STR`
-- `1`: dati binari, ritorna `B_HEX` e stampa esadecimale
+- `1`: dati binari, ritorna `B_HEX` e stampa esadecimale  
+
 **Special**: Se stringa == `"pieces"`, imposta flag globale `pieces=1`  
 **Error**: `exit(-1)` se lunghezza < 0  
-**Memory**: Alloca buffer, b_element/b_pieces, b_box, b_obj
+**Memory**: Alloca buffer, b_element/b_pieces, b_box, b_obj — liberabile con `free_obj()`
 
 ---
 
@@ -501,6 +580,7 @@ Decodifica una lista bencode (ricorsiva).
 ```c
 b_obj *lista = test_decode_list("li1ei2ee", 0);
 // lista contiene [1, 2]
+free_obj(lista);
 ```
 
 **Input**: `"l<elementi>e"` (es. `"li1ei2ee"`)  
@@ -509,7 +589,7 @@ b_obj *lista = test_decode_list("li1ei2ee", 0);
 **Side-effects**: Stampa "INIZIO LISTA" e il contenuto  
 **Bug**: `"FINE LISTA"` è unreachable code  
 **Error**: `exit(-1)` se tipo non riconosciuto  
-**Memory**: Alloca b_list, nodi, b_box, b_obj
+**Memory**: Alloca b_list, nodi, b_box, b_obj — liberabile con `free_obj()`
 
 ---
 
@@ -519,6 +599,7 @@ Decodifica un dizionario bencode (ricorsiva).
 ```c
 b_obj *dict = test_decode_dict("d3:key5:valuee", 0);
 // dict contiene {"key": "value"}
+free_obj(dict);
 ```
 
 **Input**: `"d<coppie>e"` (es. `"d3:key5:valuee"`)  
@@ -529,7 +610,7 @@ b_obj *dict = test_decode_dict("d3:key5:valuee", 0);
 **Side-effects**: Stampa "INIZIO DICT", chiavi, valori, "FINE DICT"  
 **Ordinamento**: NON garantisce chiavi ordinate lessicograficamente  
 **Error**: `exit(-1)` se tipo valore non riconosciuto  
-**Memory**: Alloca b_dict, nodi, b_box, b_obj
+**Memory**: Alloca b_dict, nodi, b_box, b_obj — liberabile con `free_obj()`
 
 ---
 
@@ -674,13 +755,13 @@ generate_peer_id("my_client_v1.0", peer_id);
 // peer_id contiene 8 byte di prefisso + 12 byte di hash SHA1
 ```
 
-**Formato risultato**: 
-- Byte 0-7: "-GS0001-" (prefisso)
+**Formato risultato**:
+- Byte 0-7: `"-GS0001-"` (prefisso client ID)
 - Byte 8-19: Primi 12 byte di SHA1(peer_key)
 
 **Total**: 20 byte (standard BitTorrent)  
-**Requires**: OpenSSL (SHA1)  
-**Note**: Buffer peer_id NON è null-terminated
+**Requires**: OpenSSL (linkare con `-lssl -lcrypto`)  
+**Note**: Buffer `peer_id` NON è null-terminated — è dati binari
 
 ---
 
@@ -710,15 +791,15 @@ char *extracted = get_bencoded_int("i42eblah");
 free(extracted);
 ```
 
-**Input**: Stringa che inizia con 'i'  
-**Output**: Stringa appena allocata contenente "i...e"  
-**Memory**: Deve essere liberata dal chiamante
+**Input**: Stringa che inizia con `'i'`  
+**Output**: Stringa appena allocata contenente `"i...e"`  
+**Memory**: Deve essere liberata dal chiamante con `free()`
 
 ---
 
 ## Esempi di Utilizzo
 
-### Esempio 1: Decodificare un Intero
+### Esempio 1: Decodificare un Intero con Free
 
 ```c
 #include "bencode.h"
@@ -726,19 +807,13 @@ free(extracted);
 #include <stdio.h>
 
 int main() {
-    // Decodifica l'intero bencode "i42e"
     b_obj *num = test_decode_integer("i42e");
     
-    // Accedi al valore decodificato
     printf("Intero: %s\n", num->object->int_str->decoded_element);
     printf("Codificato: %s\n", num->object->int_str->encoded_element);
     
-    // Libera la memoria
-    free(num->object->int_str->decoded_element);
-    free(num->object->int_str->encoded_element);
-    free(num->object->int_str);
-    free(num->object);
-    free(num);
+    // Ora è possibile liberare tutta la memoria con una sola chiamata
+    free_obj(num);
     
     return 0;
 }
@@ -752,22 +827,24 @@ Codificato: i42e
 
 ---
 
-### Esempio 2: Decodificare una Lista
+### Esempio 2: Decodificare una Lista con Free
 
 ```c
 #include "bencode.h"
 #include "structs.h"
 
 int main() {
-    // Decodifica la lista bencode "li1ei2ei3ee" (equivalente a [1, 2, 3])
     b_obj *lista = test_decode_list("li1ei2ei3ee", 0);
     
-    // La lista viene stampata automaticamente
+    // La lista viene stampata automaticamente durante il parsing
     // Output:
     // INIZIO LISTA
     // 1
     // 2
     // 3
+
+    // Libera ricorsivamente tutti i nodi e gli elementi interni
+    free_obj(lista);
     
     return 0;
 }
@@ -775,15 +852,14 @@ int main() {
 
 ---
 
-### Esempio 3: Decodificare un Dizionario
+### Esempio 3: Decodificare un Dizionario con Free
 
 ```c
 #include "bencode.h"
 #include "structs.h"
 
 int main() {
-    // Decodifica un dizionario semplice
-    const char *torrent_str = "d8:announce32:http://tracker.example.com:69694:name8:test.txtd4:infod6:lengthi1024ee";
+    const char *torrent_str = "d8:announce32:http://tracker.example.com:69694:name8:test.txte";
     
     b_obj *torrent = test_decode_dict(torrent_str, 0);
     
@@ -793,6 +869,9 @@ int main() {
     // Ricerca una chiave specifica
     find_by_key(torrent->object->dict, "announce");
     // Output: FOUND: http://tracker.example.com:6969
+
+    // Libera tutta la struttura ricorsivamente
+    free_obj(torrent);
     
     return 0;
 }
@@ -816,43 +895,32 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Leggi il file .torrent
     int fd = open(argv[1], O_RDONLY);
-    if (fd < 0) {
-        perror("open");
-        return 1;
-    }
+    if (fd < 0) { perror("open"); return 1; }
     
-    // Leggi il contenuto (nota: implementazione semplificata)
     char buffer[65536];
     ssize_t len = read(fd, buffer, sizeof(buffer) - 1);
-    if (len < 0) {
-        perror("read");
-        return 1;
-    }
+    if (len < 0) { perror("read"); return 1; }
     buffer[len] = '\0';
     close(fd);
     
-    // Decodifica il file .torrent (root è un dizionario)
     b_obj *torrent = test_decode_dict(buffer, 0);
     
     if (torrent && torrent->type == B_DICT) {
         printf("=== Torrent Decodificato ===\n");
-        
-        // Stampa il contenuto
         print_dict(torrent->object->dict);
         
-        // Ricerca il campo "announce"
         printf("\n=== URL del Tracker ===\n");
         find_by_key(torrent->object->dict, "announce");
         
-        // Accedi al dizionario "info"
         printf("\n=== Informazioni sul File ===\n");
         b_dict *info_dict = get_info_dict(torrent->object->dict, "info");
         if (info_dict) {
             print_dict(info_dict);
         }
     }
+
+    free_obj(torrent);
     
     return 0;
 }
@@ -860,7 +928,7 @@ int main(int argc, char *argv[]) {
 
 ---
 
-### Esempio 5: Genrare un Peer ID
+### Esempio 5: Generare un Peer ID
 
 ```c
 #include "bencode.h"
@@ -869,10 +937,8 @@ int main(int argc, char *argv[]) {
 int main() {
     unsigned char peer_id[20];
     
-    // Genera un Peer ID usando una stringa casuale come seed
     generate_peer_id("my_client_v1.0_12345", peer_id);
     
-    // Stampa il Peer ID in esadecimale
     printf("Peer ID: ");
     for (int i = 0; i < 20; i++) {
         printf("%02X ", peer_id[i]);
@@ -890,67 +956,11 @@ Peer ID: 2D 47 53 30 30 30 31 2D 3A ... (20 byte totali)
 
 ---
 
-### Limitazioni Architetturali
-
-#### 1. **Variabile Globale `pieces`**
-**Descrizione**: Il flag globale `int pieces` controlla il parsing di stringhe binarie vs normali  
-**Problema**: Le variabili globali rendono il codice non thread-safe e difficile da testare  
-**Impatto**: Non è possibile parsare più file in parallelo  
-**Fix**: Passare lo stato come parametro alle funzioni
-
----
-
-#### 2. **No Lexicographic Ordering for Dictionary Keys**
-**Descrizione**: Bencode richiede che le chiavi siano ordinate lessicograficamente  
-**Problema**: Questa implementazione inserisce le chiavi nell'ordine di parsing  
-**Impatto**: File .torrent invalidi (anche se funzionano comunque)  
-**Fix**: Implementare un'inserzione ordinata o ordinare dopo il parsing
-
----
-
-#### 3. **No Memory Management Helpers**
-**Descrizione**: Non ci sono funzioni per liberare la memoria delle strutture allocate  
-**Problema**: Memory leaks facili (specialmente con strutture nidificate)  
-**Impatto**: Utilizzo rischiato in applicazioni long-running  
-**Fix**: Implementare `free_b_obj()`, `free_b_list()`, `free_b_dict()`, ecc.
-
----
-
-#### 4. **No Bounds Checking**
-**Descrizione**: Non c'è controllo sulla validità dei puntatori o della lunghezza dati  
-**Problema**: Possibili buffer overflows se dati bencode malformati  
-**Impatto**: Crash o comportamento indefinito  
-**Fix**: Aggiungere controlli sulla lunghezza in ogni funzione
-
----
-
-### Limitazioni di Specifica
-
-#### 1. **Typo nel Nome Campo `enocded_list`**
-**File**: `structs.h`  
-**Codice**: `char* enocded_list;` (dovrebbe essere `encoded_list`)  
-**Impatto**: Confusione durante la manutenzione
-
----
-
-#### 2. **Inconsistenza di Naming**
-**Descrizione**: Alcuni campi usano `enocded`/`encoded`, altri `lenght`/`length`  
-**Impatto**: Confusione, difficile da ricordare
-
----
-
-#### 3. **No Input Validation**
-**Descrizione**: Le funzioni assumono input benform senza validare  
-**Impatto**: Crash su input malformati  
-**Esempio**: `atoi()` su stringa non numerica
-
----
-
 ## Considerazioni sulla Memoria
 
 ### Allocazione Dinamica
 
-Tutte le funzioni di decodifica allocano memoria con `malloc()`. È responsabilità del chiamante liberarla.
+Tutte le funzioni di decodifica allocano memoria con `malloc()`. A partire dalla v1.1, è disponibile `free_obj()` come punto di ingresso unico per la deallocazione ricorsiva.
 
 ### Pattern di Allocazione per Full Decode
 
@@ -962,8 +972,7 @@ b_obj
     ├── encoded_element (stringa)
     └── decoded_element (stringa)
 ```
-
-**Memory**: ~3 malloc + 2 stringhe
+→ Liberabile con `free_obj(ptr)`
 
 **Per una lista `test_decode_list()`**:
 ```
@@ -974,8 +983,7 @@ b_obj
     └── list_node → list_node → list_node → ...
         └── b_obj (per ogni elemento)
 ```
-
-**Memory**: O(n) malloc per n elementi + stringhe
+→ Liberabile con `free_obj(ptr)` che chiama `free_listNodes()`
 
 **Per un dizionario `test_decode_dict()`**:
 ```
@@ -987,50 +995,86 @@ b_obj
         ├── key (b_obj)
         └── value (b_obj)
 ```
-
-**Memory**: O(n) malloc per n coppie + stringhe
-
----
-
-### Memory Leak Example
-
-```c
-b_obj *list = test_decode_list("li1ei2ee", 0);
-// ... usa list ...
-// ❌ NON LIBERARE: tutti gli elementi interni rimangono in memoria!
-```
-
-**Soluzione consigliata**: Implementare funzioni ricorsive di `free`:
-
-```c
-void free_b_obj(b_obj *obj);
-void free_b_list(b_list *list);
-void free_b_dict(b_dict *dict);
-```
+→ Liberabile con `free_obj(ptr)` che chiama `free_dictNodes()`
 
 ---
 
 ### Optimization Tips
 
-1. **Per applicazioni piccole**: Non preoccuparsi dei leak (memoria limitata allocata)
-2. **Per applicazioni grandi**: Implementare funzioni di free o usare valgrind per debug
-3. **Per parsing efficiente**: Usare `decode_*()` lightweight anziché `test_decode_*()`
-4. **Per strutture nidificate profonde**: Rischio di stack overflow con ricorsione (stack default ~8MB)
+1. **Per parsing efficiente**: Usare `decode_*()` lightweight anziché `test_decode_*()`
+2. **Per strutture nidificate profonde**: Rischio di stack overflow con ricorsione (stack default ~8MB)
+3. **Valgrind**: Usare `valgrind --leak-check=full` per verificare che `free_obj()` liberi correttamente tutte le strutture
+
+---
+
+## Limitazioni Note
+
+### Limitazioni Architetturali
+
+#### 1. **Variabile Globale `pieces`** *(aperta)*
+**Descrizione**: Il flag globale `int pieces` controlla il parsing di stringhe binarie vs normali  
+**Problema**: Le variabili globali rendono il codice non thread-safe e difficile da testare  
+**Impatto**: Non è possibile parsare più file in parallelo  
+**Fix**: Passare lo stato come parametro alle funzioni
+
+---
+
+#### 2. **No Lexicographic Ordering for Dictionary Keys** *(aperta)*
+**Descrizione**: Bencode richiede che le chiavi siano ordinate lessicograficamente  
+**Problema**: Questa implementazione inserisce le chiavi nell'ordine di parsing  
+**Impatto**: File .torrent invalidi (anche se funzionano comunque)  
+**Fix**: Implementare un'inserzione ordinata o ordinare dopo il parsing
+
+---
+
+#### 3. **No Bounds Checking** *(aperta)*
+**Descrizione**: Non c'è controllo sulla validità dei puntatori o della lunghezza dati  
+**Problema**: Possibili buffer overflows se dati bencode malformati  
+**Impatto**: Crash o comportamento indefinito  
+**Fix**: Aggiungere controlli sulla lunghezza in ogni funzione
+
+---
+
+#### 4. **~~No Memory Management Helpers~~** *(risolta in v1.1)*
+~~Implementare `free_b_obj()`, `free_b_list()`, `free_b_dict()`, ecc.~~  
+✅ Risolto con `free_obj()`, `free_listNodes()`, `free_dictNodes()`
+
+---
+
+### Limitazioni di Specifica
+
+#### 1. **Typo nel Nome Campo `enocded_list`** *(aperta)*
+**File**: `structs.h`  
+**Codice**: `char* enocded_list;` (dovrebbe essere `encoded_list`)  
+**Impatto**: Confusione durante la manutenzione
+
+---
+
+#### 2. **Inconsistenza di Naming** *(aperta)*
+**Descrizione**: Alcuni campi usano `enocded`/`encoded`, altri `lenght`/`length`  
+**Impatto**: Confusione, difficile da ricordare
+
+---
+
+#### 3. **No Input Validation** *(aperta)*
+**Descrizione**: Le funzioni assumono input benform senza validare  
+**Impatto**: Crash su input malformati  
+**Esempio**: `atoi()` su stringa non numerica
 
 ---
 
 ## Conclusione
 
-Questo progetto fornisce un'implementazione funzionante ma educazionale di un parser Bencode. È adatto per:
+Questo progetto fornisce un'implementazione funzionante di un parser Bencode con gestione della memoria. È adatto per:
 - **Parsing di file .torrent** semplici
-- **Progetti didattici** su parsing e ricorsione
+- **Progetti didattici** su parsing, ricorsione e gestione della memoria in C
 - **Prototipi veloci** in C
+- **Base di partenza** per un client BitTorrent completo
 
 Non è consigliato per:
-- **Applicazioni di produzione** (manca error handling robusto)
+- **Applicazioni di produzione** (manca error handling robusto e bounds checking)
 - **File .torrent complessi** (problemi di ordine chiavi)
 - **Parsing parallelo** (variabile globale non thread-safe)
-- **Applicazioni long-running** (manca proper memory management)
 
 ---
 
@@ -1048,6 +1092,6 @@ Non è consigliato per:
 
 ---
 
-**Ultima modifica**: Gennaio 2026  
-**Versione**: 1.0  
-**Autore**: Basato su codice originale, documentazione aggiunta
+**Ultima modifica**: Febbraio 2026  
+**Versione**: 1.1  
+**Autore**: Basato su codice originale, documentazione aggiunta con AI
