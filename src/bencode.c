@@ -14,7 +14,9 @@
  * ============================================================================
  */
 
-
+ #define ANSI_COLOR_GREEN   "\x1b[32m"  /* Colore verde per messaggi di debug */
+ #define ANSI_COLOR_RED     "\x1b[31m"  /* Colore rosso (non usato attualmente) */
+ #define ANSI_COLOR_RESET   "\x1b[0m"   /* Reset al colore di default */
 
 /* ============================================================================
  * VARIABILE GLOBALE: stato del parsing per il campo "pieces"
@@ -358,7 +360,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     }
 
     /* Alloca buffer per i dati decodificati */
-    char* result = malloc((sizeof(char) * bencoded_string_lenght) + 1); //+1 valgrind debug
+    char* result = malloc((sizeof(char) * bencoded_string_lenght) + 1); //+1 valgrind debug, memleak
 
     /* Trova la posizione di ':' che separa lunghezza dai dati */
     int start_idx = 0;
@@ -373,7 +375,6 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
 
     /* ===== CASO 1: Dati binari esadecimali (p_flag=1) ===== */
     if (p_flag) {
-        int i = start_idx;
 
         /* Alloca buffer per i dati binari grezzi */
         unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_lenght + start_idx);
@@ -400,6 +401,10 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
         pic->pieces = decoded_string;
         hex->type = B_HEX;
         hex->object = pic;
+
+        /* Inutilizzate */
+        free(result);
+        free(encoded_string);
 
         return hex;
     }
@@ -651,6 +656,12 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
                 break;
             }
 
+            /* ===== CASO PAYLOAD HEX (ERRORE) */
+            case B_HEX: {
+                fprintf(stderr, "Errore, HEX in getter tipo\n");
+                exit(-1);
+            }
+
             /* ===== TIPO NON RICONOSCIUTO ===== */
             case B_NULL:
                 fprintf(stderr, "Formato non riconosciuto in decode_list (B_NULL), carattere incriminato: '%c'\n",
@@ -782,7 +793,8 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
     b_dict* dizio = dict_init();
 
     /* Variabile temporanea per la chiave */
-    b_obj* key = malloc(sizeof(b_obj));
+    //b_obj* key = malloc(sizeof(b_obj)); //byte lost valgrind error
+    b_obj* key;
 
     /* Itera attraverso le coppie chiave-valore (da idx=1 fino a 'e') */
     int idx = 1;
@@ -836,6 +848,12 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
                 break;
             }
 
+            /* ===== CASO PAYLOAD HEX (ERRORE) */
+            case B_HEX: {
+                fprintf(stderr, "Errore, HEX in getter tipo\n");
+                exit(-1);
+            }
+
             /* ===== TIPO NON RICONOSCIUTO ===== */
             case B_NULL:
                 fprintf(stderr, "Formato non riconosciuto in decode_list (B_NULL), carattere incriminato: '%c'\n",
@@ -863,6 +881,8 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
     return_dict->type = B_DICT;
     return_dict->object = dict;
     return_dict->object->dict->lenght = idx + 1;  /* //? - Incertezza del programmatore */
+
+    //free_obj(key); //???
 
     return return_dict;
 }
