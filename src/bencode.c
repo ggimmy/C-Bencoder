@@ -14,9 +14,6 @@
  * ============================================================================
  */
 
-#define ANSI_COLOR_GREEN   "\x1b[32m"  /* Colore verde per messaggi di debug */
-#define ANSI_COLOR_RED     "\x1b[31m"  /* Colore rosso (non usato attualmente) */
-#define ANSI_COLOR_RESET   "\x1b[0m"   /* Reset al colore di default */
 
 
 /* ============================================================================
@@ -36,7 +33,7 @@
  * Variabili globali sono generalmente una cattiva pratica, ma qui vengono
  * usate per semplificare il parsing sequenziale senza passare stato tra funzioni.
  */
-int pieces = 0;  /* Flag: 0 = stringa normale, 1 = prossima stringa è dati binari */
+extern int pieces;  /* Flag: 0 = stringa normale, 1 = prossima stringa è dati binari */
 
 
 /* ============================================================================
@@ -138,8 +135,10 @@ char* get_bencoded_int(char *bencoded_obj) {
     }
 
     /* Alloca memoria per l'intero estratto (incluso 'i' e 'e') */
-    char* bencoded_int = malloc(sizeof(char) * i + 1);  /* +1 per 'e' incluso */
+    char* bencoded_int = malloc(sizeof(char) * (i + 2));  /* +1 per 'e' incluso */
     strncpy(bencoded_int, &bencoded_obj[0], i + 1);
+    bencoded_int[i + 1] = '\0';
+
 
     return bencoded_int;
 }
@@ -200,16 +199,16 @@ b_obj* test_decode_integer(char *bencoded_int) {
         fprintf(stderr, "Errore, formato intero sbagliato (leading zero)! \n");
         exit(1);
     }
-
+    /* Calcolo lunghezza del numero senza i e */
+    int num_len = decodedInt->lenght - 2;
     /* Alloca buffer per la forma decodificata (escludendo 'i' e 'e') */
-    char* result = malloc(sizeof(char) * decodedInt->lenght - 2);
+    char* result = malloc(sizeof(char)* (num_len + 1));
 
     /* Copia il contenuto escludendo 'i' iniziale e 'e' finale */
-    strncpy(result, bencoded_int + 1, decodedInt->lenght - 2);
+    strncpy(result, bencoded_int + 1, num_len);
 
     /* Null-termination */
-    result[strlen(result)] = '\0';
-    bencoded_int[decodedInt->lenght] = '\0';
+    result[num_len] = '\0';
 
     /* Popola la struttura elemento */
     decodedInt->decoded_element = result;
@@ -359,7 +358,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     }
 
     /* Alloca buffer per i dati decodificati */
-    char* result = malloc(sizeof(char) * bencoded_string_lenght);
+    char* result = malloc((sizeof(char) * bencoded_string_lenght) + 1); //+1 valgrind debug
 
     /* Trova la posizione di ':' che separa lunghezza dai dati */
     int start_idx = 0;
@@ -369,7 +368,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     start_idx += 1;  /* Salta il ':' stesso */
 
     /* Alloca buffer per la forma codificata */
-    char* encoded_string = malloc(sizeof(char) * bencoded_string_lenght + start_idx);
+    char* encoded_string = malloc((sizeof(char) * bencoded_string_lenght + start_idx) + 1); //+1 valgrind debug
     strncpy(encoded_string, bencoded_string, bencoded_string_lenght + start_idx);
 
     /* ===== CASO 1: Dati binari esadecimali (p_flag=1) ===== */
@@ -382,12 +381,12 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
         /* Copia i byte grezzi nel buffer */
         memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_lenght + start_idx);
 
-        /* Stampa i dati in formato esadecimale per debugging */
+        /* Stampa i dati in formato esadecimale per debugging
         while (i < bencoded_string_lenght + start_idx) {
             printf("%02X ", (unsigned char)bencoded_string[i]);
             i++;
         }
-        printf("\n");
+        printf("\n");*/
 
         /* Crea la struttura b_pieces per memorizzare dati binari */
         b_pieces* decoded_string = malloc(sizeof(b_element));
@@ -665,7 +664,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
 
     /* Alloca e copia la forma codificata */
     b_box* list = malloc(sizeof(b_box));
-    b_obj* return_list = malloc(sizeof(b_box));
+    b_obj* return_list = malloc(sizeof(b_obj)); //era sizeof(b_box) prima, cambiato per valgrind debug
 
     char* encoded = malloc(sizeof(char) * idx + 2);
     strncpy(encoded, bencoded_list, idx + 1);
@@ -674,7 +673,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
     list->list = lista;
     lista->enocded_list = encoded;
     return_list->type = B_LIS;
-    return_list->object = list;
+    return_list->object = list; //invalid write of 8 caused from malloc in 665
 
     /* Stampa il contenuto della lista per debugging */
     print_list(lista);
