@@ -22,13 +22,18 @@
  * @return Puntatore alla lista appena allocata
  *
  * @note La memoria deve essere liberata dal chiamante quando non più necessaria
- * @note Non controlla il fallimento di malloc (potrebbe causare crash se malloc fallisce)
+ * @note Non controlla il fallimento di malloc (potrebbe causare crash se malloc fallisce) FATTO
  */
 b_list* list_init(void) {
     b_list *newList = malloc(sizeof(b_list));
-    newList->lenght = 0;
-    newList->enocded_list = NULL;
-    newList->list = NULL;
+    if(newList){
+        newList->lenght = 0;
+        newList->enocded_list = NULL;
+        newList->list = NULL;
+    } else {
+        fprintf(stderr, "Malloc failed in function list_init!\n");
+        exit(-1);
+    }
 
     return newList;
 }
@@ -45,17 +50,187 @@ b_list* list_init(void) {
  * @return Puntatore al dizionario appena allocato
  *
  * @note La memoria deve essere liberata dal chiamante quando non più necessaria
- * @note Non controlla il fallimento di malloc (potrebbe causare crash se malloc fallisce)
+ * @note Non controlla il fallimento di malloc (potrebbe causare crash se malloc fallisce) FATTO
  */
 b_dict* dict_init(void) {
     b_dict *newDict = malloc(sizeof(b_dict));
-    newDict->lenght = 0;
-    newDict->encoded_dict = NULL;
-    newDict->dict = NULL;
+    if(newDict){
+        newDict->lenght = 0;
+        newDict->encoded_dict = NULL;
+        newDict->dict = NULL;
+    } else {
+        fprintf(stderr, "Malloc failed in function dict_init!\n");
+        exit(-1);
+    }
 
     return newDict;
 }
 
+/*  ============================================================================
+ *  FUNZIONI: Deallocazione memoria
+ *  ============================================================================
+ */
+
+
+ /**
+  * @brief Libera ricorsivamente un oggetto bencodificato generico (b_obj)
+  *
+  * Dealloca tutta la memoria associata a un b_obj, incluse le strutture
+  * interne, in base al tipo dell'oggetto. La deallocazione avviene
+  * dall'interno verso l'esterno (prima i dati, poi i wrapper).
+  *
+  * Strategia per tipo:
+  *   - B_INT / B_STR: libera decoded_element → encoded_element → b_element → b_box → b_obj
+  *   - B_HEX:         libera decoded_pieces  → b_pieces        → b_box     → b_obj
+  *   - B_LIS:         chiama free_listNodes() per liberare ricorsivamente i nodi,
+  *                    poi libera b_box e b_obj
+  *   - B_DICT:        chiama free_dictNodes() per liberare ricorsivamente i nodi,
+  *                    poi libera b_box e b_obj
+  *   - B_NULL:        segnala l'errore su stderr, non libera nulla
+  *
+  * @param ptr Puntatore all'oggetto (b_obj) da liberare.
+  *            Non deve essere NULL.
+  *
+  * @note Dopo la chiamata, il puntatore ptr è invalidato (non azzerato).
+  *       Il chiamante dovrebbe impostarlo a NULL per evitare use-after-free.
+  * @note Per B_LIS e B_DICT la deallocazione è ricorsiva: libera anche
+  *       tutti gli oggetti annidati in profondità.
+  */
+ void free_obj(b_obj *ptr) {
+
+     switch (get_object_type(ptr)) {
+
+         /* ===== INTERO: libera stringhe codificata/decodificata, b_element, b_box, b_obj ===== */
+         case B_INT:
+             free(ptr->object->int_str->decoded_element);
+             free(ptr->object->int_str->encoded_element);
+             free(ptr->object->int_str);
+             free(ptr->object);
+             free(ptr);
+             break;
+
+         /* ===== STRINGA: identico a B_INT (stesso layout di b_element) ===== */
+         case B_STR:
+             free(ptr->object->int_str->decoded_element);
+             free(ptr->object->int_str->encoded_element);
+             free(ptr->object->int_str);
+             free(ptr->object);
+             free(ptr);
+             break;
+
+         /* ===== DATI BINARI: libera il buffer decoded_pieces, b_pieces, b_box, b_obj ===== */
+         case B_HEX:
+             free(ptr->object->pieces->decoded_pieces);
+             free(ptr->object->pieces);
+             free(ptr->object);
+             free(ptr);
+             break;
+
+         /* ===== LISTA: delega la liberazione dei nodi a free_listNodes() ===== */
+         case B_LIS:
+             free_listNodes(ptr->object->list);  /* Libera ricorsivamente i nodi e la b_list */
+             free(ptr->object);                  /* Libera il wrapper b_box */
+             free(ptr);                          /* Libera il wrapper b_obj */
+             break;
+
+         /* ===== DIZIONARIO: delega la liberazione dei nodi a free_dictNodes() ===== */
+         case B_DICT:
+             free_dictNodes(ptr->object->dict);  /* Libera ricorsivamente i nodi e la b_dict */
+             free(ptr->object);                  /* Libera il wrapper b_box */
+             free(ptr);                          /* Libera il wrapper b_obj */
+             break;
+
+         /* ===== TIPO NON VALIDO: segnala l'errore, non libera nulla ===== */
+         case B_NULL:
+             fprintf(stderr, "Error! Got B_NULL in free_obj!\n");
+             break;
+     }
+ }
+
+ /**
+  * @brief Libera tutti i nodi di una lista bencodificata (b_list)
+  *
+  * Itera su tutta la lista concatenata, liberando ricorsivamente l'oggetto
+  * contenuto in ogni nodo (tramite free_obj) e il nodo stesso.
+  * Al termine, libera anche la stringa bencodificata enocded_list e
+  * la struttura b_list radice.
+  *
+  * Algoritmo (scansione con puntatore temporaneo):
+  *   1. Salva il nodo corrente in tmp
+  *   2. Avanza il puntatore alla testa al nodo successivo
+  *   3. Libera l'oggetto contenuto nel nodo salvato (ricorsione)
+  *   4. Libera il nodo salvato
+  *   5. Ripete finché non ci sono più nodi
+  *   6. Libera la stringa codificata e la struttura b_list
+  *
+  * @param ptr Puntatore alla lista (b_list) da liberare.
+  *            Non deve essere NULL.
+  *
+  * @note La funzione libera anche la struttura b_list stessa (ptr).
+  *       Dopo la chiamata, ptr è invalidato.
+  * @note La deallocazione di ogni elemento è delegata a free_obj(),
+  *       che gestisce correttamente anche elementi annidati (liste/dizionari).
+  */
+ void free_listNodes(b_list *ptr) {
+     list_node *tmp = ptr->list;  /* Puntatore di appoggio per la deallocazione */
+
+     /* Itera finché ci sono nodi nella lista */
+     while (ptr->list != NULL) {
+         tmp         = ptr->list;        /* Salva il nodo corrente prima di avanzare */
+         ptr->list   = ptr->list->next;  /* Avanza la testa al nodo successivo */
+         free_obj(tmp->object);          /* Libera ricorsivamente il contenuto del nodo */
+         free(tmp);                      /* Libera il nodo stesso */
+     }
+
+     /* Libera la stringa bencodificata e la struttura contenitore */
+     free(ptr->enocded_list);  /* Stringa originale bencodificata (può essere NULL) */
+     free(ptr);                /* Struttura b_list radice */
+ }
+
+
+ /**
+  * @brief Libera tutti i nodi di un dizionario bencodificato (b_dict)
+  *
+  * Itera su tutta la lista di coppie chiave-valore, liberando ricorsivamente
+  * sia la chiave che il valore di ogni nodo (tramite free_obj) e il nodo stesso.
+  * Al termine, libera anche la stringa bencodificata encoded_dict e
+  * la struttura b_dict radice.
+  *
+  * Algoritmo (scansione con puntatore temporaneo):
+  *   1. Salva il nodo corrente in tmp
+  *   2. Avanza il puntatore alla testa al nodo successivo
+  *   3. Libera la chiave del nodo salvato (ricorsione)
+  *   4. Libera il valore del nodo salvato (ricorsione)
+  *   5. Libera il nodo salvato
+  *   6. Ripete finché non ci sono più nodi
+  *   7. Libera la stringa codificata e la struttura b_dict
+  *
+  * @param ptr Puntatore al dizionario (b_dict) da liberare.
+  *            Non deve essere NULL.
+  *
+  * @note La funzione libera anche la struttura b_dict stessa (ptr).
+  *       Dopo la chiamata, ptr è invalidato.
+  * @note La deallocazione di chiavi e valori è delegata a free_obj(),
+  *       che gestisce correttamente anche valori annidati (liste/dizionari).
+  * @note In bencode, le chiavi sono sempre stringhe (B_STR), ma free_obj()
+  *       gestisce qualunque tipo correttamente.
+  */
+ void free_dictNodes(b_dict *ptr) {
+     dict_node *tmp = ptr->dict;  /* Puntatore di appoggio per la deallocazione */
+
+     /* Itera finché ci sono nodi nel dizionario */
+     while (ptr->dict != NULL) {
+         tmp         = ptr->dict;        /* Salva il nodo corrente prima di avanzare */
+         ptr->dict   = ptr->dict->next;  /* Avanza la testa al nodo successivo */
+         free_obj(tmp->key);             /* Libera ricorsivamente la chiave */
+         free_obj(tmp->value);           /* Libera ricorsivamente il valore */
+         free(tmp);                      /* Libera il nodo stesso */
+     }
+
+     /* Libera la stringa bencodificata e la struttura contenitore */
+     free(ptr->encoded_dict);  /* Stringa originale bencodificata (può essere NULL) */
+     free(ptr);                /* Struttura b_dict radice */
+ }
 
 /* ============================================================================
  * FUNZIONI: Aggiunta elementi a liste e dizionari
