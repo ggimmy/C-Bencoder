@@ -4,6 +4,16 @@
 #include <stdio.h>  /* ssize_t */
 
 /* ============================================================================
+ * DEBUG: Codici ANSI per output colorato nel terminale
+ * ============================================================================
+ */
+
+#define ANSI_COLOR_GREEN   "\x1b[32m"  /* Colore verde per messaggi di debug */
+#define ANSI_COLOR_RED     "\x1b[31m"  /* Colore rosso (non usato attualmente) */
+#define ANSI_COLOR_RESET   "\x1b[0m"   /* Reset al colore di default */
+
+
+/* ============================================================================
  * TIPO ENUMERATIVO
  * ============================================================================
  */
@@ -295,6 +305,49 @@ b_dict* dict_init(void);
  *       Non garantisce che le chiavi rimangono ordinate lessicograficamente.
  */
 void dict_add(b_dict *dict, b_obj *key, b_obj *val);
+
+/*  ============================================================================
+ *  FUNZIONI: deallocazione memoria
+ *  ============================================================================
+ */
+
+
+ /**
+  * @brief Libera ricorsivamente un oggetto bencodificato generico (b_obj)
+  *
+  * Dealloca tutta la memoria associata a un b_obj in base al suo tipo.
+  * Per oggetti composti (B_LIS, B_DICT) la deallocazione è ricorsiva.
+  *
+  * @param ptr Puntatore all'oggetto da liberare. Non deve essere NULL.
+  *
+  * @note Dopo la chiamata ptr è invalidato; impostarlo a NULL per sicurezza.
+  */
+ void free_obj(b_obj *ptr);
+
+ /**
+  * @brief Libera tutti i nodi e la struttura di una lista bencodificata (b_list)
+  *
+  * Itera la lista concatenata liberando ricorsivamente ogni elemento
+  * tramite free_obj(), poi libera la stringa codificata e la b_list stessa.
+  *
+  * @param ptr Puntatore alla lista da liberare. Non deve essere NULL.
+  *
+  * @note Libera anche la struttura b_list radice (ptr stesso).
+  */
+ void free_listNodes(b_list *ptr);
+
+ /**
+  * @brief Libera tutti i nodi e la struttura di un dizionario bencodificato (b_dict)
+  *
+  * Itera la lista di coppie chiave-valore liberando ricorsivamente chiave
+  * e valore di ogni nodo tramite free_obj(), poi libera la stringa codificata
+  * e la b_dict stessa.
+  *
+  * @param ptr Puntatore al dizionario da liberare. Non deve essere NULL.
+  *
+  * @note Libera anche la struttura b_dict radice (ptr stesso).
+  */
+ void free_dictNodes(b_dict *ptr);
 
 
 /* ============================================================================
