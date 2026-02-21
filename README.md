@@ -1052,7 +1052,6 @@ Questo progetto fornisce un'implementazione funzionante di un parser Bencode con
 
 Non è consigliato per:
 - **Applicazioni di produzione** (manca error handling robusto e bounds checking)
-- **File .torrent complessi** (problemi di ordine chiavi)
 - **Parsing parallelo** (variabile globale non thread-safe)
 
 ---
