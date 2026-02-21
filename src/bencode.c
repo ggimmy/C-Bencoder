@@ -172,7 +172,7 @@ char* get_bencoded_int(char *bencoded_obj) {
  *   Output: b_obj con:
  *     - object->int_str->encoded_element = "i42e"
  *     - object->int_str->decoded_element = "42"
- *     - object->int_str->lenght = 4
+ *     - object->int_str->length = 4
  *
  * @param bencoded_int Stringa che rappresenta un intero bencode
  *                     Deve iniziare con 'i' e terminare con 'e'
@@ -194,7 +194,7 @@ char* get_bencoded_int(char *bencoded_obj) {
 b_obj* test_decode_integer(char *bencoded_int) {
     /* Alloca la struttura elemento */
     b_element *decodedInt = malloc(sizeof(b_element));
-    decodedInt->lenght = strlen(bencoded_int);
+    decodedInt->length = strlen(bencoded_int);
 
     /* Validazione: rifiuta zeri iniziali (es. i042e) */
     if (bencoded_int[1] == '0' && bencoded_int[2] != 'e') {
@@ -202,7 +202,7 @@ b_obj* test_decode_integer(char *bencoded_int) {
         exit(1);
     }
     /* Calcolo lunghezza del numero senza i e */
-    int num_len = decodedInt->lenght - 2;
+    int num_len = decodedInt->length - 2;
     /* Alloca buffer per la forma decodificata (escludendo 'i' e 'e') */
     char* result = malloc(sizeof(char)* (num_len + 1));
 
@@ -339,13 +339,13 @@ long long int decode_integer(char *bencoded_int) {
  *           * object->int_str->encoded_element: forma bencode
  *         - Se p_flag=1: tipo B_HEX con:
  *           * object->pieces->decoded_pieces: buffer byte grezzi
- *           * object->pieces->lenght: lunghezza dei byte
+ *           * object->pieces->length: lunghezza dei byte
  *
  * @note Termina il programma con exit(-1) se lunghezza < 0
  * @note Stampa rappresentazione esadecimale su stdout per p_flag=1
  * @note Modifica la variabile globale 'pieces' se decodifica "pieces"
  * @note La memoria allocata deve essere liberata dal chiamante
- * @note Nota: il calcolo di lenght per hex può essere errato (include start_idx)
+ * @note Nota: il calcolo di length per hex può essere errato (include start_idx)
  *
  * Complessità: O(n) dove n è la lunghezza della stringa
  *
@@ -353,14 +353,14 @@ long long int decode_integer(char *bencoded_int) {
  */
 b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     /* Estrae la lunghezza della stringa dai primi caratteri (prima di ':') */
-    int bencoded_string_lenght = atoi(&bencoded_string[0]);
-    if (bencoded_string_lenght < 0) {
+    int bencoded_string_length = atoi(&bencoded_string[0]);
+    if (bencoded_string_length < 0) {
         fprintf(stderr, "Errore! Lunghezza bytestring negativa!\n");
         exit(-1);
     }
 
     /* Alloca buffer per i dati decodificati */
-    char* result = malloc((sizeof(char) * bencoded_string_lenght) + 1); //+1 valgrind debug, memleak
+    char* result = malloc((sizeof(char) * bencoded_string_length) + 1); //+1 valgrind debug, memleak
 
     /* Trova la posizione di ':' che separa lunghezza dai dati */
     int start_idx = 0;
@@ -370,20 +370,20 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     start_idx += 1;  /* Salta il ':' stesso */
 
     /* Alloca buffer per la forma codificata */
-    char* encoded_string = malloc((sizeof(char) * bencoded_string_lenght + start_idx) + 1); //+1 valgrind debug
-    strncpy(encoded_string, bencoded_string, bencoded_string_lenght + start_idx);
+    char* encoded_string = malloc((sizeof(char) * bencoded_string_length + start_idx) + 1); //+1 valgrind debug
+    strncpy(encoded_string, bencoded_string, bencoded_string_length + start_idx);
 
     /* ===== CASO 1: Dati binari esadecimali (p_flag=1) ===== */
     if (p_flag) {
 
         /* Alloca buffer per i dati binari grezzi */
-        unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_lenght + start_idx);
+        unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_length + start_idx);
 
         /* Copia i byte grezzi nel buffer */
-        memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_lenght + start_idx);
+        memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_length + start_idx);
 
         /* Stampa i dati in formato esadecimale per debugging
-        while (i < bencoded_string_lenght + start_idx) {
+        while (i < bencoded_string_length + start_idx) {
             printf("%02X ", (unsigned char)bencoded_string[i]);
             i++;
         }
@@ -392,7 +392,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
         /* Crea la struttura b_pieces per memorizzare dati binari */
         b_pieces* decoded_string = malloc(sizeof(b_element));
         decoded_string->decoded_pieces = hex_buffer;
-        decoded_string->lenght = bencoded_string_lenght + start_idx;
+        decoded_string->length = bencoded_string_length + start_idx;
         pieces = 0;  /* Resetta il flag dopo aver processato */
 
         /* Crea il wrapper b_obj di tipo B_HEX */
@@ -411,8 +411,8 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     /* ===== CASO 2: Stringa normale (p_flag=0) ===== */
     else {
         /* Copia i dati dal buffer codificato al buffer decodificato */
-        strncpy(result, &bencoded_string[start_idx], bencoded_string_lenght);
-        result[bencoded_string_lenght] = '\0';
+        strncpy(result, &bencoded_string[start_idx], bencoded_string_length);
+        result[bencoded_string_length] = '\0';
     }
 
     /* Verifica se questa stringa è la chiave speciale "pieces" */
@@ -423,9 +423,9 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     /* Crea la struttura b_element per memorizzare la stringa */
     b_element* decoded_string = malloc(sizeof(b_element));
     decoded_string->decoded_element = result;
-    encoded_string[bencoded_string_lenght + start_idx] = '\0';
+    encoded_string[bencoded_string_length + start_idx] = '\0';
     decoded_string->encoded_element = encoded_string;
-    decoded_string->lenght = bencoded_string_lenght + start_idx;
+    decoded_string->length = bencoded_string_length + start_idx;
 
     /* Crea il wrapper b_obj di tipo B_STR */
     b_box *str = malloc(sizeof(b_box));
@@ -454,7 +454,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  *
  * Debug output:
  *   Se pieces globale è 1, stampa su stdout con colore verde (ANSI)
- *   Formato: "DEBUG PIECES LENGHT == <lenght>"
+ *   Formato: "DEBUG PIECES LENGTH == <length>"
  *
  * @param bencoded_string Stringa bencode che rappresenta una bytestring
  *                        Esempio: "4:spam" oppure "20:<dati binari>"
@@ -463,7 +463,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  *                        1 = dati binari esadecimali
  *
  * @return Lunghezza della forma codificata
- *         Formula: bencoded_string_lenght + start_idx
+ *         Formula: bencoded_string_length + start_idx
  *         Dove start_idx è la posizione dopo ':'
  *
  * @note Termina il programma con exit(-1) se lunghezza < 0
@@ -476,19 +476,19 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  */
 int decode_string(char *bencoded_string, int p_flag) {
     /* Estrae la lunghezza della stringa */
-    int bencoded_string_lenght = atoi(&bencoded_string[0]);
-    if (bencoded_string_lenght < 0) {
+    int bencoded_string_length = atoi(&bencoded_string[0]);
+    if (bencoded_string_length < 0) {
         fprintf(stderr, "Errore! Lunghezza bytestring negativa!\n");
         exit(-1);
     }
 
     /* Debug: stampa il messaggio se stiamo processando il campo "pieces" */
     if (pieces) {
-        printf(ANSI_COLOR_GREEN "DEBUG PIECES LENGHT == %d\n" ANSI_COLOR_RESET, bencoded_string_lenght);
+        printf(ANSI_COLOR_GREEN "DEBUG PIECES LENGTH == %d\n" ANSI_COLOR_RESET, bencoded_string_length);
     }
 
     /* Alloca buffer temporaneo per la stringa decodificata */
-    char* result = malloc(sizeof(char) * bencoded_string_lenght);
+    char* result = malloc(sizeof(char) * bencoded_string_length);
 
     /* Trova la posizione di ':' */
     int start_idx = 0;
@@ -502,13 +502,13 @@ int decode_string(char *bencoded_string, int p_flag) {
         int i = start_idx;
 
         /* Alloca buffer per dati binari grezzi */
-        unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_lenght + start_idx);
+        unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_length + start_idx);
 
         /* Copia i byte grezzi */
-        memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_lenght + start_idx);
+        memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_length + start_idx);
 
         /* Stampa i dati in formato esadecimale */
-        while (i < bencoded_string_lenght + start_idx) {
+        while (i < bencoded_string_length + start_idx) {
             printf("%02X ", (unsigned char)bencoded_string[i]);
             i++;
         }
@@ -519,8 +519,8 @@ int decode_string(char *bencoded_string, int p_flag) {
     /* ===== CASO 2: Stringa normale ===== */
     else {
         /* Copia i dati dalla forma codificata */
-        strncpy(result, &bencoded_string[start_idx], bencoded_string_lenght);
-        result[bencoded_string_lenght] = '\0';
+        strncpy(result, &bencoded_string[start_idx], bencoded_string_length);
+        result[bencoded_string_length] = '\0';
     }
 
     /* Verifica se questa è la chiave speciale "pieces" */
@@ -529,7 +529,7 @@ int decode_string(char *bencoded_string, int p_flag) {
     }
 
     /* Ritorna la lunghezza totale dell'elemento codificato */
-    return bencoded_string_lenght + start_idx;
+    return bencoded_string_length + start_idx;
 }
 
 
@@ -587,15 +587,15 @@ int decode_string(char *bencoded_string, int p_flag) {
  * @return Puntatore a b_obj di tipo B_LIS contenente:
  *         - type: B_LIS
  *         - object->list: la struttura b_list con la lista concatenata
- *         - object->list->lenght: lunghezza della forma codificata
- *         - object->list->enocded_list: copia della forma codificata
+ *         - object->list->length: lunghezza della forma codificata
+ *         - object->list->encoded_list: copia della forma codificata
  *
  * @note Stampa "INIZIO LISTA" all'inizio e il contenuto con print_list()
  * @note Stampa "FINE LISTA" non è raggiungibile (bug)
  * @note Termina il programma con exit(-1) se incontra tipo B_NULL
  * @note La memoria deve essere liberata dal chiamante
  * @note Il parametro start non è usato nella implementazione attuale
- * @note Nota: il typo nel nome del campo enocded_list
+ * @note Nota: il typo nel nome del campo encoded_list
  *
  * Complessità: O(n) dove n è il numero di elementi nella lista
  *
@@ -621,7 +621,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
                 char* bencoded_int = get_bencoded_int(&bencoded_list[idx]);
                 b_obj* decodedInt = test_decode_integer(bencoded_int);
                 list_add(lista, decodedInt);
-                idx += decodedInt->object->int_str->lenght;
+                idx += decodedInt->object->int_str->length;
                 break;
             }
 
@@ -631,12 +631,12 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
                     /* Prossima stringa è dati binari (campo "pieces") */
                     b_obj* decodedPieces = test_decode_string(&bencoded_list[idx], pieces);
                     list_add(lista, decodedPieces);
-                    idx += decodedPieces->object->pieces->lenght;
+                    idx += decodedPieces->object->pieces->length;
                 } else {
                     /* Stringa normale */
                     b_obj *decodedString = test_decode_string(&bencoded_list[idx], pieces);
                     list_add(lista, decodedString);
-                    idx += decodedString->object->int_str->lenght;
+                    idx += decodedString->object->int_str->length;
                 }
                 break;
 
@@ -644,7 +644,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
             case B_LIS: {
                 b_obj *decodedList = test_decode_list(&bencoded_list[idx], idx);
                 list_add(lista, decodedList);
-                idx += decodedList->object->list->lenght;
+                idx += decodedList->object->list->length;
                 break;
             }
 
@@ -652,7 +652,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
             case B_DICT: {
                 b_obj *decodedDict = test_decode_dict(&bencoded_list[idx], idx);
                 list_add(lista, decodedDict);
-                idx += decodedDict->object->dict->lenght;
+                idx += decodedDict->object->dict->length;
                 break;
             }
 
@@ -671,7 +671,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
     }
 
     /* Imposta la lunghezza totale della lista codificata */
-    lista->lenght = idx + 1;
+    lista->length = idx + 1;
 
     /* Alloca e copia la forma codificata */
     b_box* list = malloc(sizeof(b_box));
@@ -682,7 +682,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
 
     /* Popola il wrapper */
     list->list = lista;
-    lista->enocded_list = encoded;
+    lista->encoded_list = encoded;
     return_list->type = B_LIS;
     return_list->object = list; //invalid write of 8 caused from malloc in 665
 
@@ -766,7 +766,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
  * @return Puntatore a b_obj di tipo B_DICT contenente:
  *         - type: B_DICT
  *         - object->dict: la struttura b_dict con le coppie chiave-valore
- *         - object->dict->lenght: lunghezza della forma codificata
+ *         - object->dict->length: lunghezza della forma codificata
  *         - object->dict->encoded_dict: copia della forma codificata
  *
  * @note Stampa "INIZIO DICT", "KEY = ", "VALUE = ", "FINE DICT" per debug
@@ -776,7 +776,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
  * @note Il parametro start non è usato nella implementazione attuale
  * @note Non garantisce che le chiavi rimangono ordinate lessicograficamente
  * @note Nota: il typo nel nome del campo encoded_dict (corretto rispetto a liste)
- * @note Nota: commentario su lenght contiene "//?" (incertezza dei programmatori)
+ * @note Nota: commentario su length contiene "//?" (incertezza dei programmatori)
  *
  * Complessità: O(n) dove n è il numero di coppie nel dizionario
  *
@@ -802,7 +802,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
         /* ===== DECODIFICA DELLA CHIAVE (sempre stringa) ===== */
         printf("\nKEY = ");
         key = test_decode_string(&bencoded_dict[idx], pieces);
-        idx += key->object->int_str->lenght;
+        idx += key->object->int_str->length;
 
         /* ===== DECODIFICA DEL VALORE (tipo vario) ===== */
         printf("VALUE = ");
@@ -813,7 +813,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
                 char* bencoded_int = get_bencoded_int(&bencoded_dict[idx]);
                 b_obj *decodedInt = test_decode_integer(bencoded_int);
                 dict_add(dizio, key, decodedInt);
-                idx += decodedInt->object->int_str->lenght;
+                idx += decodedInt->object->int_str->length;
                 break;
             }
 
@@ -823,12 +823,12 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
                     /* Prossima stringa è dati binari (campo "pieces") */
                     b_obj *decodedPieces = test_decode_string(&bencoded_dict[idx], pieces);
                     dict_add(dizio, key, decodedPieces);
-                    idx += decodedPieces->object->pieces->lenght;
+                    idx += decodedPieces->object->pieces->length;
                 } else {
                     /* Stringa normale */
                     b_obj *decodedString = test_decode_string(&bencoded_dict[idx], pieces);
                     dict_add(dizio, key, decodedString);
-                    idx += decodedString->object->int_str->lenght;
+                    idx += decodedString->object->int_str->length;
                 }
                 break;
 
@@ -836,7 +836,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
             case B_LIS: {
                 b_obj *decodedList = test_decode_list(&bencoded_dict[idx], idx);
                 dict_add(dizio, key, decodedList);
-                idx += decodedList->object->list->lenght;
+                idx += decodedList->object->list->length;
                 break;
             }
 
@@ -844,7 +844,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
             case B_DICT: {
                 b_obj *decodedDict = test_decode_dict(&bencoded_dict[idx], idx);
                 dict_add(dizio, key, decodedDict);
-                idx += decodedDict->object->dict->lenght;
+                idx += decodedDict->object->dict->length;
                 break;
             }
 
@@ -880,7 +880,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
 
     return_dict->type = B_DICT;
     return_dict->object = dict;
-    return_dict->object->dict->lenght = idx + 1;  /* //? - Incertezza del programmatore */
+    return_dict->object->dict->length = idx + 1;  /* //? - Incertezza del programmatore */
 
     //free_obj(key); //???
 
