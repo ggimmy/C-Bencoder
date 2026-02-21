@@ -1043,20 +1043,7 @@ b_obj
 
 ### Limitazioni di Specifica
 
-#### 1. **Typo nel Nome Campo `enocded_list`** *(aperta)*
-**File**: `structs.h`  
-**Codice**: `char* enocded_list;` (dovrebbe essere `encoded_list`)  
-**Impatto**: Confusione durante la manutenzione
-
----
-
-#### 2. **Inconsistenza di Naming** *(aperta)*
-**Descrizione**: Alcuni campi usano `enocded`/`encoded`, altri `lenght`/`length`  
-**Impatto**: Confusione, difficile da ricordare
-
----
-
-#### 3. **No Input Validation** *(aperta)*
+#### 1. **No Input Validation** *(aperta)*
 **Descrizione**: Le funzioni assumono input benform senza validare  
 **Impatto**: Crash su input malformati  
 **Esempio**: `atoi()` su stringa non numerica
