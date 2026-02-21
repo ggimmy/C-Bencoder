@@ -15,8 +15,8 @@
  * @brief Inizializza una lista bencodificata vuota
  *
  * Alloca memoria per una nuova struttura b_list e inizializza tutti i campi:
- * - lenght impostato a 0 (lista vuota)
- * - enocded_list impostato a NULL
+ * - length impostato a 0 (lista vuota)
+ * - encoded_list impostato a NULL
  * - list impostato a NULL (nessun nodo)
  *
  * @return Puntatore alla lista appena allocata
@@ -27,8 +27,8 @@
 b_list* list_init(void) {
     b_list *newList = malloc(sizeof(b_list));
     if(newList){
-        newList->lenght = 0;
-        newList->enocded_list = NULL;
+        newList->length = 0;
+        newList->encoded_list = NULL;
         newList->list = NULL;
     } else {
         fprintf(stderr, "Malloc failed in function list_init!\n");
@@ -43,7 +43,7 @@ b_list* list_init(void) {
  * @brief Inizializza un dizionario bencodificato vuoto
  *
  * Alloca memoria per una nuova struttura b_dict e inizializza tutti i campi:
- * - lenght impostato a 0 (dizionario vuoto)
+ * - length impostato a 0 (dizionario vuoto)
  * - encoded_dict impostato a NULL
  * - dict impostato a NULL (nessun nodo)
  *
@@ -55,7 +55,7 @@ b_list* list_init(void) {
 b_dict* dict_init(void) {
     b_dict *newDict = malloc(sizeof(b_dict));
     if(newDict){
-        newDict->lenght = 0;
+        newDict->length = 0;
         newDict->encoded_dict = NULL;
         newDict->dict = NULL;
     } else {
@@ -152,7 +152,7 @@ b_dict* dict_init(void) {
   *
   * Itera su tutta la lista concatenata, liberando ricorsivamente l'oggetto
   * contenuto in ogni nodo (tramite free_obj) e il nodo stesso.
-  * Al termine, libera anche la stringa bencodificata enocded_list e
+  * Al termine, libera anche la stringa bencodificata encoded_list e
   * la struttura b_list radice.
   *
   * Algoritmo (scansione con puntatore temporaneo):
@@ -183,7 +183,7 @@ b_dict* dict_init(void) {
      }
 
      /* Libera la stringa bencodificata e la struttura contenitore */
-     free(ptr->enocded_list);  /* Stringa originale bencodificata (può essere NULL) */
+     free(ptr->encoded_list);  /* Stringa originale bencodificata (può essere NULL) */
      free(ptr);                /* Struttura b_list radice */
  }
 
@@ -404,7 +404,7 @@ B_TYPE get_dict_value_type(dict_node *node) {
  *   (che corrisponde a "Hello World")
  *
  * @param pieces Puntatore al buffer di byte da stampare
- * @param lenght Numero di byte da stampare
+ * @param length Numero di byte da stampare
  *
  * @return void
  *
@@ -412,8 +412,8 @@ B_TYPE get_dict_value_type(dict_node *node) {
  * @note Non stampa separatori di linea all'inizio, ma stampa un newline al fine
  * @note Non esegue alcun controllo su validità del puntatore o della lunghezza
  */
-void print_hex(unsigned char *pieces, size_t lenght) {
-    for (int i = 0; i < lenght; i++) {
+void print_hex(unsigned char *pieces, size_t length) {
+    for (int i = 0; i < length; i++) {
         printf("%02X ", pieces[i]);
     }
     printf("\n");
@@ -502,7 +502,7 @@ void print_list(b_list *lista) {
  * @note Assume che la chiave sia sempre una stringa decodificata
  * @note Termina il programma con exit(-1) se incontra un valore di tipo B_NULL
  * @note La ricorsione permette di stampare dizionari nidificati
- * @note Nel caso B_HEX, chiama print_hex con lenght=0 (comportamento discutibile)
+ * @note Nel caso B_HEX, chiama print_hex con length=0 (comportamento discutibile)
  */
 void print_dict(b_dict *dict) {
     dict_node *tmp = dict->dict;
@@ -558,20 +558,20 @@ void print_dict(b_dict *dict) {
  * - B_NULL: stampa un errore e termina il programma
  *
  * @param obj            Puntatore all'oggetto (b_obj) da stampare
- * @param pieces_lenght  Lunghezza dei dati per elementi di tipo B_HEX
+ * @param pieces_length  Lunghezza dei dati per elementi di tipo B_HEX
  *                       (necessaria perché non è memorizzata nell'oggetto)
  *
  * @return void
  *
  * @note Stampa su stdout
- * @note Il parametro pieces_lenght è necessario perché la struttura b_pieces
+ * @note Il parametro pieces_length è necessario perché la struttura b_pieces
  *       contiene la lunghezza ma viene passata errata (vedi print_dict)
  * @note Nota un bug potenziale: nel caso B_STR stampa l'elemento codificato
  *       mentre in altre funzioni stampa l'elemento decodificato
  * @note Manca un break dopo B_DICT (potrebbe causare fall-through al caso B_HEX)
  * @note Termina il programma con exit(-1) se incontra un oggetto di tipo B_NULL
  */
-void print_object(b_obj *obj, size_t pieces_lenght) {
+void print_object(b_obj *obj, size_t pieces_length) {
     switch (get_object_type(obj)) {
         case B_INT:
             printf("%s\n", obj->object->int_str->decoded_element);
@@ -590,7 +590,7 @@ void print_object(b_obj *obj, size_t pieces_lenght) {
             break;
 
         case B_HEX:
-            print_hex(obj->object->pieces->decoded_pieces, pieces_lenght);
+            print_hex(obj->object->pieces->decoded_pieces, pieces_length);
             break;
 
         case B_NULL:
@@ -677,7 +677,7 @@ b_dict* get_info_dict(b_dict *dict, char *key) {
  * @note Stampa su stdout
  * @note La complessità è O(n) dove n è il numero di coppie nel dizionario
  * @note Utilizza strcmp quindi il confronto è case-sensitive e dipende dalla locale
- * @note Chiama print_object con pieces_lenght=0 (comportamento discutibile
+ * @note Chiama print_object con pieces_length=0 (comportamento discutibile
  *       per dati binari)
  * @note Non fornisce informazioni sul tipo del valore trovato
  */
