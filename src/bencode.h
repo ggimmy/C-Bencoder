@@ -137,7 +137,7 @@ char* get_bencoded_int(char *bencoded_obj);
  *         I campi sono:
  *         - object->int_str->encoded_element: forma bencode ("i42e")
  *         - object->int_str->decoded_element: forma leggibile ("42")
- *         - object->int_str->lenght: lunghezza della forma codificata
+ *         - object->int_str->length: lunghezza della forma codificata
  *
  * @note Termina il programma con exit(1) se il formato è invalido (es. leading zero)
  * @note Non controlla se il numero rientra nel range di long long int
@@ -196,7 +196,7 @@ b_obj* test_decode_integer(char *bencoded_int);
  *
  *         Per p_flag == 1: b_obj di tipo B_HEX contenente:
  *         - object->pieces->decoded_pieces: buffer dei byte grezzi
- *         - object->pieces->lenght: lunghezza dei dati
+ *         - object->pieces->length: lunghezza dei dati
  *
  * @note Stampa "Errore! Lunghezza bytestring negativa!" e termina se lunghezza < 0
  * @note Stampa rappresentazione esadecimale su stdout per p_flag == 1
@@ -247,8 +247,8 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag);
  *
  * @return Puntatore a b_obj di tipo B_LIS contenente:
  *         - object->list->list: puntatore al primo nodo della lista concatenata
- *         - object->list->lenght: lunghezza della forma codificata
- *         - object->list->enocded_list: copia della forma codificata
+ *         - object->list->length: lunghezza della forma codificata
+ *         - object->list->encoded_list: copia della forma codificata
  *
  * @note Stampa su stdout: "INIZIO LISTA" al start e "FINE LISTA" al termine
  * @note Stampa il contenuto della lista con print_list() prima di ritornare
@@ -303,7 +303,7 @@ b_obj* test_decode_list(char *bencoded_list, int start);
  *
  * @return Puntatore a b_obj di tipo B_DICT contenente:
  *         - object->dict->dict: puntatore al primo nodo del dizionario
- *         - object->dict->lenght: lunghezza della forma codificata
+ *         - object->dict->length: lunghezza della forma codificata
  *         - object->dict->encoded_dict: copia della forma codificata
  *
  * @note Stampa su stdout: "INIZIO DICT" al start, "KEY = " prima della chiave,
