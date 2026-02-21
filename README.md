@@ -1019,15 +1019,7 @@ b_obj
 
 ---
 
-#### 2. **No Lexicographic Ordering for Dictionary Keys** *(aperta)*
-**Descrizione**: Bencode richiede che le chiavi siano ordinate lessicograficamente  
-**Problema**: Questa implementazione inserisce le chiavi nell'ordine di parsing  
-**Impatto**: File .torrent invalidi (anche se funzionano comunque)  
-**Fix**: Implementare un'inserzione ordinata o ordinare dopo il parsing
-
----
-
-#### 3. **No Bounds Checking** *(aperta)*
+#### 2. **No Bounds Checking** *(aperta)*
 **Descrizione**: Non c'è controllo sulla validità dei puntatori o della lunghezza dati  
 **Problema**: Possibili buffer overflows se dati bencode malformati  
 **Impatto**: Crash o comportamento indefinito  
@@ -1035,7 +1027,7 @@ b_obj
 
 ---
 
-#### 4. **~~No Memory Management Helpers~~** *(risolta in v1.1)*
+#### 3. **~~No Memory Management Helpers~~** *(risolta in v1.1)*
 ~~Implementare `free_b_obj()`, `free_b_list()`, `free_b_dict()`, ecc.~~  
 ✅ Risolto con `free_obj()`, `free_listNodes()`, `free_dictNodes()`
 
