@@ -120,11 +120,11 @@ typedef struct bencoded_object b_obj;
  *
  * Campi:
  * - decoded_pieces: buffer che contiene i dati binari decodificati
- * - lenght:         lunghezza in byte dei dati
+ * - length:         lunghezza in byte dei dati
  */
 struct pieces {
     unsigned char *decoded_pieces; /* Buffer con i dati binari */
-    ssize_t lenght;                /* Lunghezza del buffer */
+    ssize_t length;                /* Lunghezza del buffer */
 };
 typedef struct pieces b_pieces;
 
@@ -144,12 +144,12 @@ typedef struct pieces b_pieces;
  * Campi:
  * - encoded_element:   forma originale bencodificata (es. "i42e" o "4:spam")
  * - decoded_element:   forma decodificata leggibile (es. "42" o "spam")
- * - lenght:            lunghezza totale dell'elemento codificato
+ * - length:            lunghezza totale dell'elemento codificato
  */
 struct bencoded_element {
     char *encoded_element;  /* Forma bencodificata originale */
     char *decoded_element;  /* Forma decodificata leggibile */
-    ssize_t lenght;         /* Lunghezza della forma codificata */
+    ssize_t length;         /* Lunghezza della forma codificata */
 };
 typedef struct bencoded_element b_element;
 
@@ -218,14 +218,14 @@ typedef struct bdict_node dict_node;
  * Memorizza sia la forma codificata che una rappresentazione in memoria.
  *
  * Campi:
- * - enocded_list: forma bencodificata originale (NOTA: typo nel nome "enocded")
+ * - encoded_list: forma bencodificata originale (NOTA: typo nel nome "encoded")
  * - list:         puntatore al primo nodo della lista concatenata
- * - lenght:       lunghezza totale della forma codificata
+ * - length:       lunghezza totale della forma codificata
  */
 struct bencoded_list {
-    char *enocded_list;   /* Forma bencodificata originale [NOTA: typo nel nome] */
+    char *encoded_list;   /* Forma bencodificata originale [NOTA: typo nel nome] */
     list_node *list;      /* Puntatore al primo nodo della lista */
-    ssize_t lenght;       /* Lunghezza della forma codificata */
+    ssize_t length;       /* Lunghezza della forma codificata */
 };
 typedef struct bencoded_list b_list;
 
@@ -245,12 +245,12 @@ typedef struct bencoded_list b_list;
  * Campi:
  * - encoded_dict: forma bencodificata originale
  * - dict:         puntatore al primo nodo della lista concatenata (chiave-valore)
- * - lenght:       lunghezza totale della forma codificata
+ * - length:       lunghezza totale della forma codificata
  */
 struct bencoded_dict {
     char *encoded_dict; /* Forma bencodificata originale */
     dict_node *dict;    /* Puntatore al primo nodo del dizionario */
-    ssize_t lenght;     /* Lunghezza della forma codificata */
+    ssize_t length;     /* Lunghezza della forma codificata */
 };
 typedef struct bencoded_dict b_dict;
 
@@ -389,11 +389,11 @@ B_TYPE get_dict_value_type(dict_node *node);
  * @brief Stampa un buffer di byte in formato esadecimale
  *
  * @param pieces Puntatore al buffer di byte da stampare
- * @param lenght Numero di byte da stampare
+ * @param length Numero di byte da stampare
  *
  * @note Stampa i byte in formato "XX XX XX ..." (es. "48 65 6C 6C 6F")
  */
-void print_hex(unsigned char *pieces, size_t lenght);
+void print_hex(unsigned char *pieces, size_t length);
 
 /**
  * @brief Stampa il contenuto di una lista bencodificata
@@ -419,12 +419,12 @@ void print_dict(b_dict *dict);
  * @brief Stampa il contenuto di un oggetto generico
  *
  * @param obj            Puntatore all'oggetto da stampare
- * @param pieces_lenght  Lunghezza dei dati esadecimali (per tipo B_HEX)
+ * @param pieces_length  Lunghezza dei dati esadecimali (per tipo B_HEX)
  *
  * @note Stampa ricorsivamente l'oggetto in base al suo tipo.
  *       Termina il programma con exit(-1) se incontra un tipo non valido.
  */
-void print_object(b_obj *obj, size_t pieces_lenght);
+void print_object(b_obj *obj, size_t pieces_length);
 
 
 /* ============================================================================
