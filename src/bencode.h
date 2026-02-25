@@ -149,7 +149,7 @@ char* get_bencoded_int(char *bencoded_obj);
  *
  * @see decode_integer() per una versione lightweight che non memorizza la forma
  */
-b_obj* test_decode_integer(char *bencoded_int);
+b_obj* decode_integer(char *bencoded_int);
 
 
 /**
@@ -211,7 +211,7 @@ b_obj* test_decode_integer(char *bencoded_int);
  *
  * @see decode_string() per una versione che solo ritorna la lunghezza
  */
-b_obj* test_decode_string(char *bencoded_string, int p_flag);
+b_obj* decode_string(char *bencoded_string, int p_flag);
 
 
 /**
@@ -261,7 +261,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag);
  *
  * @see test_decode_dict() per la decodifica di dizionari
  */
-b_obj* test_decode_list(char *bencoded_list, int start);
+b_obj* decode_list(char *bencoded_list, int start);
 
 
 /**
@@ -318,7 +318,7 @@ b_obj* test_decode_list(char *bencoded_list, int start);
  *
  * @see test_decode_list() per la decodifica di liste
  */
-b_obj* test_decode_dict(char *bencoded_dict, int start);
+b_obj* decode_dict(char *bencoded_dict, int start);
 
 
 /* ============================================================================
@@ -330,106 +330,6 @@ b_obj* test_decode_dict(char *bencoded_dict, int start);
  * Utili per il parsing efficiente quando solo la forma decodificata è importante.
  *
  */
-
-/**
- * @brief Decodifica un intero bencode e ritorna la lunghezza (senza alloc)
- *
- * Funzione leggera che decodifica un intero bencode (formato i<num>e) e
- * ritorna solo la lunghezza totale dell'elemento codificato.
- * Non alloca strutture dati, solo stampa il risultato su stdout.
- *
- * Validazione:
- *   - Rifiuta zeri iniziali (leading zeros): i042e è un errore
- *   - Se la validazione fallisce, stampa errore e termina con exit(1)
- *
- * @param bencoded_int Stringa bencode che rappresenta un intero
- *                     Esempio: "i42e"
- *
- * @return Lunghezza della stringa bencode (numero di caratteri da i a e inclusi)
- *
- * @note Stampa il valore decodificato su stdout (con printf)
- * @note Non alloca memoria per le stringhe
- * @note Termina il programma con exit(1) se il formato è invalido
- *
- * @see test_decode_integer() per una versione che alloca strutture complete
- */
-long long int decode_integer(char *bencoded_int);
-
-
-/**
- * @brief Decodifica una bytestring bencode e ritorna la lunghezza (senza alloc)
- *
- * Funzione leggera che decodifica una bytestring bencode (formato <len>:<dati>)
- * e ritorna solo la lunghezza totale dell'elemento codificato.
- * Non alloca strutture dati complete, gestisce il flag per dati binari.
- *
- * Comportamento del flag p_flag:
- *   - Se p_flag == 0 (stringa normale):
- *     * Decodifica la stringa
- *     * Non alloca memoria
- *
- *   - Se p_flag == 1 (dati binari):
- *     * Alloca buffer per dati binari
- *     * Stampa rappresentazione esadecimale su stdout
- *     * Resetta il flag pieces a 0
- *
- * @param bencoded_string Stringa bencode che rappresenta una bytestring
- *                        Esempio: "4:spam"
- * @param p_flag          Flag che indica il tipo:
- *                        0 = stringa normale, 1 = dati binari
- *
- * @return Lunghezza della forma codificata (<lunghezza> + ':' + <dati>)
- *
- * @note Stampa messaggi di debug su stdout se p_flag == 1
- * @note Termina il programma con exit(-1) se lunghezza < 0
- * @note Modifica la variabile globale 'pieces'
- *
- * @see test_decode_string() per una versione che alloca strutture complete
- */
-int decode_string(char *bencoded_string, int p_flag);
-
-
-/**
- * @brief Decodifica una lista bencode e ritorna la lunghezza (senza alloc)
- *
- * Funzione leggera che decodifica una lista bencode (formato l<elementi>e)
- * e ritorna solo la lunghezza totale dell'elemento codificato.
- * Supporta ricorsione per liste nidificate.
- *
- * @param bencoded_list Stringa bencode che rappresenta una lista
- *                      Esempio: "li1ei2ee"
- * @param idx           Indice di inizio nel buffer (per ricorsione)
- *
- * @return Lunghezza della forma codificata (numero di caratteri da 'l' a 'e')
- *
- * @note Solitamente usata internamente per determinare gli offset durante parsing
- * @note Non alloca strutture dati
- *
- * @see test_decode_list() per una versione che alloca strutture complete
- */
-int decode_list(char *bencoded_list, int idx);
-
-
-/**
- * @brief Decodifica un dizionario bencode e ritorna la lunghezza (senza alloc)
- *
- * Funzione leggera che decodifica un dizionario bencode (formato d<coppie>e)
- * e ritorna solo la lunghezza totale dell'elemento codificato.
- * Supporta ricorsione per dizionari nidificati.
- *
- * @param bencoded_dict Stringa bencode che rappresenta un dizionario
- *                      Esempio: "d3:key5:valuee"
- * @param idx           Indice di inizio nel buffer (per ricorsione)
- *
- * @return Lunghezza della forma codificata (numero di caratteri da 'd' a 'e')
- *
- * @note Solitamente usata internamente per determinare gli offset durante parsing
- * @note Non alloca strutture dati
- *
- * @see test_decode_dict() per una versione che alloca strutture complete
- */
-int decode_dict(char *bencoded_dict, int idx);
-
 
 /* ============================================================================
  * FUNZIONI: Utilità per BitTorrent
