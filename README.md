@@ -775,11 +775,6 @@ Non c'è controllo sulla lunghezza massima del buffer bencode in ingresso. Input
 
 ---
 
-#### Ordinamento Chiavi Dizionario Non Garantito *(aperta)*
-La specifica bencode richiede chiavi ordinate lessicograficamente. Questa implementazione non garantisce tale ordinamento.
-
----
-
 ## Riferimenti
 
 - [BitTorrent Specification - Bencode](http://www.bittorrent.org/beps/bep_0003.html)
