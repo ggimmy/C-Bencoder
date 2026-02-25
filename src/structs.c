@@ -98,6 +98,12 @@ b_dict* dict_init(void) {
   */
  void free_obj(b_obj *ptr) {
 
+     /* Input validation */
+     if(ptr == NULL){
+         fprintf(stderr, "Error! NULL pointer parsed in function free_obj()! ");
+         exit(-1);
+     }
+
      switch (get_object_type(ptr)) {
 
          /* ===== INTERO: libera stringhe codificata/decodificata, b_element, b_box, b_obj ===== */
@@ -172,6 +178,13 @@ b_dict* dict_init(void) {
   *       che gestisce correttamente anche elementi annidati (liste/dizionari).
   */
  void free_listNodes(b_list *ptr) {
+
+     /* Input validation */
+     if(ptr == NULL){
+         fprintf(stderr, "Error! NULL pointer parsed in function free_listNodes()! ");
+         exit(-1);
+     }
+
      list_node *tmp = ptr->list;  /* Puntatore di appoggio per la deallocazione */
 
      /* Itera finché ci sono nodi nella lista */
@@ -216,6 +229,13 @@ b_dict* dict_init(void) {
   *       gestisce qualunque tipo correttamente.
   */
  void free_dictNodes(b_dict *ptr) {
+
+     /* Input validation */
+     if(ptr == NULL){
+         fprintf(stderr, "Error! NULL pointer parsed in function free_dictNodes()! ");
+         exit(-1);
+     }
+
      dict_node *tmp = ptr->dict;  /* Puntatore di appoggio per la deallocazione */
 
      /* Itera finché ci sono nodi nel dizionario */
@@ -261,6 +281,12 @@ b_dict* dict_init(void) {
  * @note Per liste grandi, considerare di usare una coda per ottimizzare gli inserimenti
  */
 void list_add(b_list *lista, b_obj *elem) {
+    /* Input validation */
+    if(lista == NULL || elem == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function list_add()! ");
+        exit(-1);
+    }
+
     /* Alloca un nuovo nodo */
     list_node *newNode = malloc(sizeof(list_node));
     if (newNode) {
@@ -312,6 +338,13 @@ void list_add(b_list *lista, b_obj *elem) {
  * @note Per dizionari grandi, considerare di usare una struttura dati più efficiente
  */
 void dict_add(b_dict *dict, b_obj *key, b_obj *val) {
+
+    /* Input validation */
+    if(dict == NULL || key == NULL || val == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function dict_add()! ");
+        exit(-1);
+    }
+
     /* Alloca un nuovo nodo */
     dict_node *newNode = malloc(sizeof(dict_node));
     if (newNode) {
@@ -352,6 +385,13 @@ void dict_add(b_dict *dict, b_obj *key, b_obj *val) {
  * @note Questa è una semplice funzione getter
  */
 B_TYPE get_object_type(b_obj *obj) {
+
+    /* Input validation */
+    if(obj == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function get_object_type()! ");
+        exit(-1);
+    }
+
     return obj->type;
 }
 
@@ -367,6 +407,13 @@ B_TYPE get_object_type(b_obj *obj) {
  * @note Questa è una semplice funzione getter con un livello di indirezione in più
  */
 B_TYPE get_list_node_type(list_node *node) {
+
+    /* Input validation */
+    if(node == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function get_list_node_type()! ");
+        exit(-1);
+    }
+
     return node->object->type;
 }
 
@@ -384,6 +431,13 @@ B_TYPE get_list_node_type(list_node *node) {
  * @note Non considera il tipo della chiave, solo del valore
  */
 B_TYPE get_dict_value_type(dict_node *node) {
+
+    /* Input validation */
+    if(node == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function get_dict_value_type()! ");
+        exit(-1);
+    }
+
     return node->value->type;
 }
 
@@ -413,6 +467,13 @@ B_TYPE get_dict_value_type(dict_node *node) {
  * @note Non esegue alcun controllo su validità del puntatore o della lunghezza
  */
 void print_hex(unsigned char *pieces, size_t length) {
+
+    /* Input validation */
+    if(pieces == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function print_hex()! ");
+        exit(-1);
+    }
+
     for (int i = 0; i < length; i++) {
         printf("%02X ", pieces[i]);
     }
@@ -442,6 +503,13 @@ void print_hex(unsigned char *pieces, size_t length) {
  * @note La ricorsione permette di stampare liste nidificate
  */
 void print_list(b_list *lista) {
+
+    /* Input validation */
+    if(lista == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function print_list()! ");
+        exit(-1);
+    }
+
     list_node *tmp = lista->list;
 
     while (tmp != NULL) {
@@ -505,6 +573,13 @@ void print_list(b_list *lista) {
  * @note Nel caso B_HEX, chiama print_hex con length=0 (comportamento discutibile)
  */
 void print_dict(b_dict *dict) {
+
+    /* Input validation */
+    if(dict == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function print_dict()! ");
+        exit(-1);
+    }
+
     dict_node *tmp = dict->dict;
 
     while (tmp != NULL) {
@@ -572,6 +647,13 @@ void print_dict(b_dict *dict) {
  * @note Termina il programma con exit(-1) se incontra un oggetto di tipo B_NULL
  */
 void print_object(b_obj *obj, size_t pieces_length) {
+
+    /* Input validation */
+    if(obj == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function print_object()! ");
+        exit(-1);
+    }
+
     switch (get_object_type(obj)) {
         case B_INT:
             printf("%s\n", obj->object->int_str->decoded_element);
@@ -637,6 +719,13 @@ void print_object(b_obj *obj, size_t pieces_length) {
  * @note Utilizza strcmp quindi il confronto è case-sensitive e dipende dalla locale
  */
 b_dict* get_info_dict(b_dict *dict, char *key) {
+
+    /* Input validation */
+    if(dict == NULL || key == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function get_info_dict()! ");
+        exit(-1);
+    }
+
     dict_node *tmp = dict->dict;
 
     while (tmp != NULL) {
@@ -682,6 +771,13 @@ b_dict* get_info_dict(b_dict *dict, char *key) {
  * @note Non fornisce informazioni sul tipo del valore trovato
  */
 void find_by_key(b_dict *dict, char *key) {
+
+    /* Input validation */
+    if(dict == NULL || key == NULL){
+        fprintf(stderr, "Error! NULL pointer parsed in function find_by_key()! ");
+        exit(-1);
+    }
+
     dict_node *tmp = dict->dict;
 
     while (tmp != NULL) {
