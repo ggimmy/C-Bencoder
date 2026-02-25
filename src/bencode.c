@@ -18,6 +18,25 @@
  #define ANSI_COLOR_RED     "\x1b[31m"  /* Colore rosso (non usato attualmente) */
  #define ANSI_COLOR_RESET   "\x1b[0m"   /* Reset al colore di default */
 
+/* ============================================================================
+ * VARIABILE GLOBALE: stato del parsing per il campo "pieces"
+ * ============================================================================
+ *
+ * Questa variabile globale controlla se la prossima stringa decodificata
+ * deve essere trattata come dati binari esadecimali oppure come stringa ASCII.
+ *
+ * Flusso di parsing nei file .torrent:
+ *   1. Si incontra la stringa "pieces" come chiave nel dizionario "info"
+ *   2. La funzione decode_string() imposta pieces = 1
+ *   3. Il valore successivo viene decodificato come B_HEX (dati binari)
+ *   4. La funzione decode_string() resetta pieces = 0
+ *   5. Le stringhe successive tornano a essere decodificate come B_STR
+ *
+ * Variabili globali sono generalmente una cattiva pratica, ma qui vengono
+ * usate per semplificare il parsing sequenziale senza passare stato tra funzioni.
+ */
+//extern int pieces;  /* Flag: 0 = stringa normale, 1 = prossima stringa è dati binari */
+
 
 /* ============================================================================
  * FUNZIONI: Determinazione del tipo bencode
@@ -60,15 +79,7 @@ B_TYPE type_to_decode(char start) {
 }
 
 
-/* ============================================================================
- * FORWARD DECLARATION: prototipo per ricorsione
- * ============================================================================
- *
- * Questo prototipo è necessario perché test_decode_dict() è definito dopo
- * test_decode_list(), ma quest'ultima può chiamare test_decode_dict()
- * quando incontra un dizionario nidificato.
- */
-int decode_dict(char *bencoded_dict, int idx);
+
 
 
 /* ============================================================================
@@ -108,15 +119,9 @@ int decode_dict(char *bencoded_dict, int idx);
  *
  * Complessità: O(n) dove n è la distanza fino a 'e'
  *
- * @see test_decode_integer() che usa questa funzione
+ * @see decode_integer() che usa questa funzione
  */
 char* get_bencoded_int(char *bencoded_obj) {
-
-    if(bencoded_obj == NULL){
-        fprintf(stderr, "Error! NULL pointer parsed in fuction get_bencoded_int()! ");
-        exit(-1);
-    }
-
     /* Scansiona fino al carattere 'e' di terminazione */
     int i = 0;
     while (bencoded_obj[i] != 'e') {
@@ -125,10 +130,6 @@ char* get_bencoded_int(char *bencoded_obj) {
 
     /* Alloca memoria per l'intero estratto (incluso 'i' e 'e') */
     char* bencoded_int = malloc(sizeof(char) * (i + 2));  /* +1 per 'e' incluso */
-    if(bencoded_int == NULL){
-        fprintf(stderr, "Malloc failed while allcoatind %ld bytes in function get_becnoded_int()! ", (sizeof(char) * i + 2));
-        exit(-1);
-    }
     strncpy(bencoded_int, &bencoded_obj[0], i + 1);
     bencoded_int[i + 1] = '\0';
 
@@ -182,19 +183,9 @@ char* get_bencoded_int(char *bencoded_obj) {
  * @see decode_integer() per una versione lightweight
  * @see get_bencoded_int() che è usata per estrarre l'intero
  */
-b_obj* test_decode_integer(char *bencoded_int) {
-
-    if(bencoded_int == NULL){
-        fprintf(stderr, "Error! NULL pointer parsed in fuction decode_integer()! ");
-        exit(-1);
-    }
-
+b_obj* decode_integer(char *bencoded_int) {
     /* Alloca la struttura elemento */
     b_element *decodedInt = malloc(sizeof(b_element));
-    if(decodedInt == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(b_element) );
-        exit(-1);
-    }
     decodedInt->length = strlen(bencoded_int);
 
     /* Validazione: rifiuta zeri iniziali (es. i042e) */
@@ -206,10 +197,6 @@ b_obj* test_decode_integer(char *bencoded_int) {
     int num_len = decodedInt->length - 2;
     /* Alloca buffer per la forma decodificata (escludendo 'i' e 'e') */
     char* result = malloc(sizeof(char)* (num_len + 1));
-    if(result == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", ( sizeof(char) * (num_len + 1) ) );
-        exit(-1);
-    }
 
     /* Copia il contenuto escludendo 'i' iniziale e 'e' finale */
     strncpy(result, bencoded_int + 1, num_len);
@@ -222,80 +209,14 @@ b_obj* test_decode_integer(char *bencoded_int) {
     decodedInt->encoded_element = bencoded_int;
 
     /* Crea il wrapper b_obj */
-    b_box* intero = malloc(sizeof(b_box));
-    if(intero == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(b_box) );
-        exit(-1);
-    }
-
+    b_box *intero = malloc(sizeof(b_box));
     b_obj* integer = malloc(sizeof(b_obj));
-    if(integer == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(b_obj) );
-        exit(-1);
-    }
-
     intero->int_str = decodedInt;
     integer->type = B_INT;
     integer->object = intero;
 
     return integer;
 }
-
-
-/**
- * @brief Decodifica un intero bencode (versione lightweight)
- *
- * Funzione leggera che decodifica un intero bencode e ritorna solo
- * la lunghezza dell'elemento codificato. Non alloca strutture dati.
- * Stampa il valore decodificato su stdout.
- *
- * Validazione:
- *   - Rifiuta zeri iniziali: bencoded_int[1]=='0' && bencoded_int[2]!='e'
- *   - Termina con exit(1) se invalido
- *
- * Algoritmo:
- *   1. Valida il formato (no leading zero)
- *   2. Alloca buffer temporaneo per la conversione
- *   3. Copia il numero escludendo 'i' e 'e'
- *   4. Converte a long long int con atoll()
- *   5. Stampa il risultato
- *   6. Ritorna la lunghezza totale
- *
- * @param bencoded_int Stringa bencode che rappresenta un intero
- *                     Esempio: "i42e"
- *
- * @return Lunghezza della stringa bencode (numero di caratteri)
- *         Esempio: per "i42e" ritorna 4
- *
- * @note Stampa il valore decodificato su stdout con printf()
- * @note Non alloca strutture dati complete (solo buffer temporaneo)
- * @note Termina il programma se il formato è invalido
- * @note Non controlla overflow di long long int
- *
- * @see test_decode_integer() per una versione che alloca strutture complete
- */
-long long int decode_integer(char *bencoded_int) {
-    /* Validazione: rifiuta zeri iniziali (es. i042e) */
-    if (bencoded_int[1] == '0' && bencoded_int[2] != 'e') {
-        fprintf(stderr, "Errore, formato intero sbagliato (leading zero)! \n");
-        exit(1);
-    }
-
-    size_t bencoded_int_len = strlen(bencoded_int);
-
-    /* Alloca buffer per il numero decodificato (senza 'i' e 'e') */
-    char* result = malloc(sizeof(char) * bencoded_int_len - 2);
-
-    /* Copia il numero escludendo 'i' iniziale e 'e' finale */
-    strncpy(result, bencoded_int + 1, bencoded_int_len - 1);
-
-    /* Converte a intero e stampa */
-    unsigned long long int decoded_int = atoll(result);
-    printf("%lld\n", decoded_int);
-
-    return bencoded_int_len;
-}
-
 
 /* ============================================================================
  * FUNZIONI: Decodifica stringhe/bytestring
@@ -366,35 +287,16 @@ long long int decode_integer(char *bencoded_int) {
  *
  * @see decode_string() per una versione lightweight
  */
-b_obj* test_decode_string(char *bencoded_string, int p_flag) {
-
-    if(bencoded_string == NULL){
-        fprintf(stderr, "Error! NULL pointer parsed in function decode_string! ");
-        exit(-1);
-    }
-
-    int bencoded_string_length = 0;
-
+b_obj* decode_string(char *bencoded_string, int p_flag) {
     /* Estrae la lunghezza della stringa dai primi caratteri (prima di ':') */
-
-    /* Input validation */
-    if(bencoded_string[0] <= '9' && bencoded_string[0] >= 0){
-        bencoded_string_length = atoi(&bencoded_string[0]);
-    } else {
-        fprintf(stderr, "Error in calculating string lenght in function decode_string!");
-        exit(-1);
-    }
+    int bencoded_string_length = atoi(&bencoded_string[0]);
     if (bencoded_string_length < 0) {
         fprintf(stderr, "Errore! Lunghezza bytestring negativa!\n");
         exit(-1);
     }
 
     /* Alloca buffer per i dati decodificati */
-    char* result = malloc((sizeof(char) * bencoded_string_length) + 1);
-    if(result == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", ( sizeof(char) * (bencoded_string_length + 1) ) );
-        exit(-1);
-    }
+    char* result = malloc((sizeof(char) * bencoded_string_length) + 1); //+1 valgrind debug, memleak
 
     /* Trova la posizione di ':' che separa lunghezza dai dati */
     int start_idx = 0;
@@ -404,11 +306,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
     start_idx += 1;  /* Salta il ':' stesso */
 
     /* Alloca buffer per la forma codificata */
-    char* encoded_string = malloc((sizeof(char) * bencoded_string_length + start_idx) + 1);
-    if(encoded_string == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", ( sizeof(char) * (bencoded_string_length + start_idx) + 1 ) );
-        exit(-1);
-    }
+    char* encoded_string = malloc((sizeof(char) * bencoded_string_length + start_idx) + 1); //+1 valgrind debug
     strncpy(encoded_string, bencoded_string, bencoded_string_length + start_idx);
 
     /* ===== CASO 1: Dati binari esadecimali (p_flag=1) ===== */
@@ -416,10 +314,6 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
 
         /* Alloca buffer per i dati binari grezzi */
         unsigned char* hex_buffer = malloc(sizeof(unsigned char) * bencoded_string_length + start_idx);
-        if(hex_buffer == NULL){
-            fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", ( sizeof(unsigned char) * (bencoded_string_length + start_idx) ) );
-            exit(-1);
-        }
 
         /* Copia i byte grezzi nel buffer */
         memcpy(hex_buffer, &bencoded_string[start_idx], bencoded_string_length + start_idx);
@@ -433,28 +327,13 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
 
         /* Crea la struttura b_pieces per memorizzare dati binari */
         b_pieces* decoded_string = malloc(sizeof(b_element));
-        if(decoded_string == NULL){
-            fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_element) );
-            exit(-1);
-        }
-
         decoded_string->decoded_pieces = hex_buffer;
         decoded_string->length = bencoded_string_length + start_idx;
         //pieces = 0;  /* Resetta il flag dopo aver processato */
 
         /* Crea il wrapper b_obj di tipo B_HEX */
         b_box *pic = malloc(sizeof(b_box));
-        if(pic == NULL){
-            fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_box) );
-            exit(-1);
-        }
-
         b_obj *hex = malloc(sizeof(b_obj));
-        if(hex == NULL){
-            fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_obj) );
-            exit(-1);
-        }
-
         pic->pieces = decoded_string;
         hex->type = B_HEX;
         hex->object = pic;
@@ -479,11 +358,6 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
 */
     /* Crea la struttura b_element per memorizzare la stringa */
     b_element* decoded_string = malloc(sizeof(b_element));
-    if(decoded_string == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_element) );
-        exit(-1);
-    }
-
     decoded_string->decoded_element = result;
     encoded_string[bencoded_string_length + start_idx] = '\0';
     decoded_string->encoded_element = encoded_string;
@@ -491,17 +365,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
 
     /* Crea il wrapper b_obj di tipo B_STR */
     b_box *str = malloc(sizeof(b_box));
-    if(str == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_box) );
-        exit(-1);
-    }
-
     b_obj* string = malloc(sizeof(b_obj));
-    if(string == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_string()! ", sizeof(b_obj) );
-        exit(-1);
-    }
-
     str->int_str = decoded_string;
     string->type = B_STR;
     string->object = str;
@@ -544,7 +408,7 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  * @note Modifica il flag globale 'pieces'
  * @note Alloca solo buffer temporanei
  *
- * @see test_decode_string() per una versione che alloca strutture complete
+ * @see decode_string() per una versione che alloca strutture complete
  */
 
 
@@ -581,8 +445,8 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  *   7. Ritorna l'oggetto wrapper b_obj
  *
  * Ricorsione:
- *   - Se incontra 'l' (sottolista): chiama ricorsivamente test_decode_list()
- *   - Se incontra 'd' (dizionario): chiama test_decode_dict()
+ *   - Se incontra 'l' (sottolista): chiama ricorsivamente decode_list()
+ *   - Se incontra 'd' (dizionario): chiama decode_dict()
  *   - I risultati sono aggiunti alla lista principale
  *
  * Allocazione memoria:
@@ -616,18 +480,12 @@ b_obj* test_decode_string(char *bencoded_string, int p_flag) {
  * Complessità: O(n) dove n è il numero di elementi nella lista
  *
  * Esempio di uso:
- *   b_obj *list = test_decode_list("li1ei2ee", 0);
+ *   b_obj *list = decode_list("li1ei2ee", 0);
  *   // Stampa: INIZIO LISTA \n 1 \n 2 \n FINE LISTA
  *
- * @see test_decode_dict() per dizionari
+ * @see decode_dict() per dizionari
  */
-b_obj* test_decode_list(char *bencoded_list, int start) {
-
-    if(bencoded_list == NULL){
-        fprintf(stderr, "Error! NULL pointer parsed in function decode_list()! ");
-        exit(-1);
-    }
-
+b_obj* decode_list(char *bencoded_list, int start) {
     printf("\n\t\tINIZIO LISTA\n");
 
     /* Inizializza una nuova lista vuota */
@@ -641,7 +499,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
             /* ===== ELEMENTO INTERO ===== */
             case B_INT: {
                 char* bencoded_int = get_bencoded_int(&bencoded_list[idx]);
-                b_obj* decodedInt = test_decode_integer(bencoded_int);
+                b_obj* decodedInt = decode_integer(bencoded_int);
                 list_add(lista, decodedInt);
                 idx += decodedInt->object->int_str->length;
                 break;
@@ -650,14 +508,14 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
             /* ===== ELEMENTO STRINGA ===== */
             case B_STR:
                 /* Stringa normale */
-                b_obj *decodedString = test_decode_string(&bencoded_list[idx], 0);
+                b_obj *decodedString = decode_string(&bencoded_list[idx], 0);
                 list_add(lista, decodedString);
                 idx += decodedString->object->int_str->length;
                 break;
 
             /* ===== SOTTOLISTA (ricorsione) ===== */
             case B_LIS: {
-                b_obj *decodedList = test_decode_list(&bencoded_list[idx], idx);
+                b_obj *decodedList = decode_list(&bencoded_list[idx], idx);
                 list_add(lista, decodedList);
                 idx += decodedList->object->list->length;
                 break;
@@ -665,7 +523,7 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
 
             /* ===== SOTTODIZIONARIO (ricorsione) ===== */
             case B_DICT: {
-                b_obj *decodedDict = test_decode_dict(&bencoded_list[idx], idx);
+                b_obj *decodedDict = decode_dict(&bencoded_list[idx], idx);
                 list_add(lista, decodedDict);
                 idx += decodedDict->object->dict->length;
                 break;
@@ -690,23 +548,9 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
 
     /* Alloca e copia la forma codificata */
     b_box* list = malloc(sizeof(b_box));
-    if(list == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_list()! ", sizeof(b_box) );
-        exit(-1);
-    }
-
-    b_obj* return_list = malloc(sizeof(b_obj));
-    if(return_list == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_list()! ", sizeof(b_obj) );
-        exit(-1);
-    }
+    b_obj* return_list = malloc(sizeof(b_obj)); //era sizeof(b_box) prima, cambiato per valgrind debug
 
     char* encoded = malloc(sizeof(char) * idx + 2);
-    if(encoded == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(char) * (idx + 2) );
-        exit(-1);
-    }
-
     strncpy(encoded, bencoded_list, idx + 1);
 
     /* Popola il wrapper */
@@ -766,8 +610,8 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
  *   7. Ritorna l'oggetto wrapper b_obj
  *
  * Ricorsione:
- *   - Se il valore è 'l' (lista): chiama ricorsivamente test_decode_list()
- *   - Se il valore è 'd' (dizionario): chiama ricorsivamente test_decode_dict()
+ *   - Se il valore è 'l' (lista): chiama ricorsivamente decode_list()
+ *   - Se il valore è 'd' (dizionario): chiama ricorsivamente decode_dict()
  *   - Permette strutture arbitrariamente nidificate (es. metafile .torrent)
  *
  * Allocazione memoria:
@@ -810,27 +654,21 @@ b_obj* test_decode_list(char *bencoded_list, int start) {
  * Complessità: O(n) dove n è il numero di coppie nel dizionario
  *
  * Esempio di uso:
- *   b_obj *torrent = test_decode_dict("d8:announce<...>4:infod<...>ee", 0);
+ *   b_obj *torrent = decode_dict("d8:announce<...>4:infod<...>ee", 0);
  *   // Stampa la struttura dell'intero file torrent
  *
- * @see test_decode_list() per liste
+ * @see decode_list() per liste
  */
-b_obj* test_decode_dict(char *bencoded_dict, int start) {
-
-    if(bencoded_dict == NULL){
-        fprintf(stderr, "Error! NULL pointer parsed in function decode_dict()! ");
-        exit(-1);
-    }
-
+b_obj* decode_dict(char *bencoded_dict, int start) {
     printf("\n\t\tINIZIO DICT\n");
 
-    /* flag pieces */
     int p_flag = 0;
 
     /* Inizializza un nuovo dizionario vuoto */
     b_dict* dizio = dict_init();
 
     /* Variabile temporanea per la chiave */
+    //b_obj* key = malloc(sizeof(b_obj)); //byte lost valgrind error
     b_obj* key;
 
     /* Itera attraverso le coppie chiave-valore (da idx=1 fino a 'e') */
@@ -838,10 +676,10 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
     while (bencoded_dict[idx] != 'e') {
         /* ===== DECODIFICA DELLA CHIAVE (sempre stringa) ===== */
         printf("\nKEY = ");
-        key = test_decode_string(&bencoded_dict[idx], 0);
+        key = decode_string(&bencoded_dict[idx], 0);
         idx += key->object->int_str->length;
 
-        /* ===== CASO PIECES ===== */
+        /* ==== Test pieces thread safe */
         if(strcmp(key->object->int_str->decoded_element, "pieces") == 0){
             p_flag = 1;
         }
@@ -852,7 +690,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
             /* ===== VALORE INTERO ===== */
             case B_INT: {
                 char* bencoded_int = get_bencoded_int(&bencoded_dict[idx]);
-                b_obj *decodedInt = test_decode_integer(bencoded_int);
+                b_obj *decodedInt = decode_integer(bencoded_int);
                 dict_add(dizio, key, decodedInt);
                 idx += decodedInt->object->int_str->length;
                 break;
@@ -862,13 +700,13 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
             case B_STR:
                 if (p_flag) {
                     /* Prossima stringa è dati binari (campo "pieces") */
-                    b_obj *decodedPieces = test_decode_string(&bencoded_dict[idx], p_flag);
+                    b_obj *decodedPieces = decode_string(&bencoded_dict[idx], p_flag);
                     dict_add(dizio, key, decodedPieces);
                     idx += decodedPieces->object->pieces->length;
                     p_flag = 0;
                 } else {
                     /* Stringa normale */
-                    b_obj *decodedString = test_decode_string(&bencoded_dict[idx], 0);
+                    b_obj *decodedString = decode_string(&bencoded_dict[idx], 0);
                     dict_add(dizio, key, decodedString);
                     idx += decodedString->object->int_str->length;
                 }
@@ -876,7 +714,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
 
             /* ===== VALORE LISTA (ricorsione) ===== */
             case B_LIS: {
-                b_obj *decodedList = test_decode_list(&bencoded_dict[idx], idx);
+                b_obj *decodedList = decode_list(&bencoded_dict[idx], idx);
                 dict_add(dizio, key, decodedList);
                 idx += decodedList->object->list->length;
                 break;
@@ -884,7 +722,7 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
 
             /* ===== VALORE DIZIONARIO (ricorsione) ===== */
             case B_DICT: {
-                b_obj *decodedDict = test_decode_dict(&bencoded_dict[idx], idx);
+                b_obj *decodedDict = decode_dict(&bencoded_dict[idx], idx);
                 dict_add(dizio, key, decodedDict);
                 idx += decodedDict->object->dict->length;
                 break;
@@ -910,24 +748,10 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
 
     /* Alloca il wrapper b_box e b_obj */
     b_box* dict = malloc(sizeof(b_box));
-    if(dict == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(b_box) );
-        exit(-1);
-    }
-
     b_obj *return_dict = malloc(sizeof(b_obj));
-    if(return_dict == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(b_obj) );
-        exit(-1);
-    }
 
     /* Alloca e copia la forma codificata */
     char* encoded = malloc(sizeof(char) * idx + 2);
-    if(encoded == NULL){
-        fprintf(stderr, "Malloc failed while allocating %ld bytes in function decode_integer()! ", sizeof(char) * (idx + 2) );
-        exit(-1);
-    }
-
     memcpy(encoded, bencoded_dict, idx + 1);
 
     /* Popola il wrapper */
@@ -936,7 +760,9 @@ b_obj* test_decode_dict(char *bencoded_dict, int start) {
 
     return_dict->type = B_DICT;
     return_dict->object = dict;
-    return_dict->object->dict->length = idx + 1;
+    return_dict->object->dict->length = idx + 1;  /* //? - Incertezza del programmatore */
+
+    //free_obj(key); //???
 
     return return_dict;
 }
